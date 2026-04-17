@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 
+// Check if we're in browser
+const isBrowser = typeof window !== 'undefined';
+
 export const useDashboardStore = create((set, get) => ({
   // 🔹 LOADING STATE
   isLoading: false,
@@ -23,30 +26,72 @@ export const useDashboardStore = create((set, get) => ({
     },
   },
 
-  // 🔹 CHART DATA (by role)
+  // 🔹 CHART DATA (by role) - with defaults for SSR
   chartData: {
     admin: {
-      line: { categories: [], series: [] },
-      pie: { labels: [], series: [] },
-      bar: { categories: [], series: [] },
+      line: { 
+        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"], 
+        series: [{ name: "Transactions", data: [100, 200, 150, 300, 250, 400] }] 
+      },
+      pie: { 
+        labels: ["High Risk", "Medium", "Low"], 
+        series: [50, 30, 20] 
+      },
+      bar: { 
+        categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
+        series: [{ name: "Volume", data: [300, 500, 400, 600, 550, 700, 650] }] 
+      },
     },
     auditor: {
-      line: { categories: [], series: [] },
-      pie: { labels: [], series: [] },
-      bar: { categories: [], series: [] },
+      line: { 
+        categories: ["Mon", "Tue", "Wed", "Thu", "Fri"], 
+        series: [
+          { name: "Flagged", data: [10, 25, 18, 40, 35] },
+          { name: "Reviewed", data: [5, 15, 12, 20, 25] },
+        ] 
+      },
+      pie: { 
+        labels: ["Critical", "Moderate", "Safe"], 
+        series: [40, 35, 25] 
+      },
+      bar: { 
+        categories: ["Case1", "Case2", "Case3", "Case4", "Case5"], 
+        series: [{ name: "Investigations", data: [20, 35, 25, 40, 30] }] 
+      },
     },
     management: {
-      line: { categories: [], series: [] },
-      pie: { labels: [], series: [] },
-      bar: { categories: [], series: [] },
+      line: { 
+        categories: ["Q1", "Q2", "Q3", "Q4"], 
+        series: [
+          { name: "Revenue", data: [500, 700, 650, 900] },
+          { name: "Expenses", data: [300, 400, 350, 500] },
+        ] 
+      },
+      pie: { 
+        labels: ["Completed", "In Progress", "Pending"], 
+        series: [45, 35, 20] 
+      },
+      bar: { 
+        categories: ["Finance", "HR", "IT", "Sales", "Marketing"], 
+        series: [{ name: "Performance", data: [85, 92, 78, 95, 88] }] 
+      },
     },
   },
 
-  // 🔹 TABLE DATA (by role)
+  // 🔹 TABLE DATA (by role) - with defaults for SSR
   tableData: {
-    admin: [],
-    auditor: [],
-    management: [],
+    admin: [
+      { user: "admin@system.com", action: "Login", time: "2 mins ago", status: "Success" },
+      { user: "auditor@audit.com", action: "Report Generated", time: "15 mins ago", status: "Completed" },
+    ],
+    auditor: [
+      { id: "#TX123", amount: "$5,000", status: "High Risk" },
+      { id: "#TX124", amount: "$200", status: "Review" },
+    ],
+    management: [
+      { department: "Finance", task: "Q3 Budget Review", manager: "John Smith", status: "In Progress", date: "Today" },
+      { department: "HR", task: "Employee Onboarding", manager: "Sarah Lee", status: "Completed", date: "Yesterday" },
+    ],
   },
 
   // 🔹 SETTERS
@@ -64,6 +109,15 @@ export const useDashboardStore = create((set, get) => ({
 
   // 🔹 FETCH ALL DATA FOR A ROLE (simulates API call)
   fetchDashboardData: async (role) => {
+    // Skip during SSR
+    if (!isBrowser) {
+      return {
+        stats: get().stats[role],
+        chartData: get().chartData[role],
+        tableData: get().tableData[role],
+      };
+    }
+
     set({ isLoading: true });
     
     // Simulate API delay
