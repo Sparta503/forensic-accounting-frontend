@@ -6,7 +6,18 @@ const Chart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-export default function TransactionTrendChart() {
+export default function TransactionTrendChart({
+  categories = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  series = [
+    {
+      name: "Transactions",
+      data: [120, 200, 150, 300, 250, 400, 350],
+    },
+  ],
+}) {
+  const safeCategories = categories ?? [];
+  const safeSeries = series ?? [];
+
   const options = {
     chart: {
       toolbar: { show: false },
@@ -25,7 +36,7 @@ export default function TransactionTrendChart() {
     },
 
     xaxis: {
-      categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      categories: safeCategories,
       labels: {
         style: { colors: "#9ca3af" },
       },
@@ -41,19 +52,12 @@ export default function TransactionTrendChart() {
       borderColor: "rgba(255,255,255,0.08)",
     },
 
-    colors: ["#f3f4f6"], // lighter bar for contrast on black
+    colors: ["#f3f4f6"],
 
     tooltip: {
       theme: "dark",
     },
   };
-
-  const series = [
-    {
-      name: "Transactions",
-      data: [120, 200, 150, 300, 250, 400, 350],
-    },
-  ];
 
   return (
     <div className="bg-black p-6 rounded-2xl shadow-lg border border-gray-800 transition-all duration-300 cursor-pointer group hover:shadow-2xl hover:scale-[1.03] hover:border-gray-500">
@@ -62,7 +66,8 @@ export default function TransactionTrendChart() {
         Weekly Transaction Trend
       </h2>
 
-      <Chart options={options} series={series} type="bar" height={260} />
+      <Chart options={options} series={safeSeries} type="bar" height={260} />
+
     </div>
   );
 }
