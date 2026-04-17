@@ -25,8 +25,8 @@ export default function FraudTrendChart({ categories, series }) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-6 rounded-2xl shadow-xl">
-      <h2 className="text-white mb-4 font-semibold">
+    <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 hover:border-gray-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+      <h2 className="text-white mb-4 font-semibold group-hover:text-gray-200">
         Trend Analysis
       </h2>
 
