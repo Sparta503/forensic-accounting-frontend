@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getUserFromToken } from "../../lib/auth";
 import { Shield, User } from "lucide-react";
 import SearchBar from "../ui/searchbar";
 
-export default function Navbar() {
+function NavbarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [role, setRole] = useState("Loading...");
@@ -122,5 +122,13 @@ export default function Navbar() {
 
       </div>
     </div>
+  );
+}
+
+export default function Navbar() {
+  return (
+    <Suspense fallback={<div className="h-16 bg-gradient-to-r from-yellow-900 via-amber-900 to-black" />}>
+      <NavbarContent />
+    </Suspense>
   );
 }
