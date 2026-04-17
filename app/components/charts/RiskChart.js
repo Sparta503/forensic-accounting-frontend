@@ -31,16 +31,16 @@ export default function RiskPieChart() {
     },
 
     stroke: {
-      colors: ["#1e3a8a"], // gives clean separation
+      colors: ["#1f2937"], // gives clean separation
     },
   };
 
   const series = [44, 33, 23];
 
   return (
-    <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-6 rounded-2xl shadow-xl">
+    <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 hover:border-gray-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
 
-      <h2 className="text-white font-semibold mb-4">
+      <h2 className="text-white font-semibold mb-4 group-hover:text-gray-200">
         Risk Distribution
       </h2>
 
