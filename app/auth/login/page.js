@@ -22,7 +22,7 @@ export default function LoginPage() {
         <div className="w-full mb-6">
           <div className="bg-yellow-600/90 text-sm px-4 py-2 rounded-md text-white text-center flex items-center justify-center gap-2">
             <Landmark size={18} />
-            Welcome to the new TN CyberTech Banking Online Banking
+            Welcome to Forensic Accounting Information System
           </div>
         </div>
 
@@ -40,10 +40,10 @@ export default function LoginPage() {
         {/* TEXT */}
         <div className="text-center">
           <h3 className="text-lg font-semibold">
-            TN CyberTech Bank Online Banking
+            Forensic Accounting Information System
           </h3>
           <p className="text-sm text-gray-400 mt-1">
-            The future of banking.
+            The future of Accounting,Auditing and Banking.
           </p>
         </div>
 
