@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Card from "../../components/ui/Card";
 import Table from "../../components/ui/Table";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 import {
   Users,
@@ -16,29 +18,24 @@ import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TrendChart";
 
-// ✅ HOOK
-import { useAnalysis } from "../../hooks/useAnalysis";
-
 export default function AdminDashboard() {
-  // ✅ ADMIN DATA
-  const analysis = useAnalysis("admin");
+  // ✅ GET DATA FROM STORE
+  const { stats, chartData, tableData, fetchDashboardData, isLoading } = useDashboardStore();
+  
+  // ✅ FETCH DATA ON MOUNT
+  useEffect(() => {
+    fetchDashboardData("admin");
+  }, [fetchDashboardData]);
+
+  const adminStats = stats.admin;
+  const adminCharts = chartData.admin;
+  const adminTable = tableData.admin;
 
   const columns = [
     { key: "user", label: "User" },
     { key: "action", label: "Action" },
     { key: "time", label: "Time" },
     { key: "status", label: "Status" },
-  ];
-
-  const data = [
-    { user: "admin@system.com", action: "Login", time: "2 mins ago", status: "Success" },
-    { user: "auditor@audit.com", action: "Report Generated", time: "15 mins ago", status: "Completed" },
-    { user: "user@demo.com", action: "Transaction", time: "1 hour ago", status: "Pending" },
-    { user: "admin@system.com", action: "User Created", time: "3 hours ago", status: "Success" },
-    { user: "system", action: "Backup", time: "6 hours ago", status: "Success" },
-    { user: "auditor@audit.com", action: "Fraud Alert", time: "8 hours ago", status: "Reviewed" },
-    { user: "user@demo.com", action: "Password Change", time: "12 hours ago", status: "Success" },
-    { user: "admin@system.com", action: "Settings Updated", time: "1 day ago", status: "Success" },
   ];
 
   return (
@@ -60,25 +57,25 @@ export default function AdminDashboard() {
       </h1>
 
       {/* CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ml-40">
 
         <Card
           title="Total Users"
-          value="1,245"
+          value={isLoading ? "..." : adminStats.totalUsers.toLocaleString()}
           icon={Users}
           color="blue"
         />
 
         <Card
           title="Fraud Alerts"
-          value="23"
+          value={isLoading ? "..." : adminStats.fraudAlerts.toString()}
           icon={AlertTriangle}
           color="red"
         />
 
         <Card
           title="Transactions"
-          value="8,902"
+          value={isLoading ? "..." : adminStats.transactions.toLocaleString()}
           icon={CreditCard}
           color="purple"
         />
@@ -86,30 +83,40 @@ export default function AdminDashboard() {
       </div>
 
       {/* ✅ CHARTS */}
+      <h2
+        className="
+          text-xl font-semibold
+          text-gray-900
+          tracking-wide
+          flex items-center gap-2
+          border-l-4 border-blue-500
+          pl-3
+        "
+      >
+        <Activity size={20} className="text-blue-600" />
+        Graphical Summary
+      </h2>
+
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* BIG LINE */}
-        <div className="lg:col-span-2">
-          <FraudTrendChart
-            categories={analysis.line.categories}
-            series={analysis.line.series}
-          />
-        </div>
+        {/* LINE */}
+        <FraudTrendChart
+          categories={adminCharts.line.categories}
+          series={adminCharts.line.series}
+        />
 
         {/* PIE */}
         <RiskPieChart
-          labels={analysis.pie.labels}
-          series={analysis.pie.series}
+          labels={adminCharts.pie.labels}
+          series={adminCharts.pie.series}
         />
 
-      </div>
-
-      {/* BAR */}
-      <div>
+        {/* BAR */}
         <TransactionTrendChart
-          categories={analysis.bar.categories}
-          series={analysis.bar.series}
+          categories={adminCharts.bar.categories}
+          series={adminCharts.bar.series}
         />
+
       </div>
 
       {/* TABLE */}
@@ -129,7 +136,7 @@ export default function AdminDashboard() {
           Recent System Activity
         </h2>
 
-        <Table columns={columns} data={data} />
+        <Table columns={columns} data={adminTable} />
 
       </div>
 
