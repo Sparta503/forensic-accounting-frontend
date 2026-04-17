@@ -17,6 +17,9 @@ import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TrendChart";
 
+// Force dynamic rendering to prevent static generation errors
+export const dynamic = "force-dynamic";
+
 export default function ManagementDashboard() {
   // ✅ GET DATA FROM STORE
   const { stats, chartData, tableData, fetchDashboardData, isLoading } = useDashboardStore();
