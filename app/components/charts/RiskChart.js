@@ -6,13 +6,16 @@ const Chart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-export default function RiskPieChart() {
+export default function RiskPieChart({
+  labels = ["High Risk", "Medium", "Low"],
+  series = [44, 33, 23]
+}) {
   const options = {
     chart: {
       background: "transparent",
     },
 
-    labels: ["High Risk", "Medium", "Low"],
+    labels: labels,
 
     colors: ["#ef4444", "#facc15", "#22c55e"],
 
@@ -35,7 +38,6 @@ export default function RiskPieChart() {
     },
   };
 
-  const series = [44, 33, 23];
 
   return (
     <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 hover:border-gray-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
