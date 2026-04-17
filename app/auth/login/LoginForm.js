@@ -55,7 +55,7 @@ export default function LoginForm() {
       </h2>
 
       <p className="text-gray-400 mb-6">
-        Login to TN CyberTech Banking System
+        Forensic Accounting Information System
       </p>
 
       {/* ROLE SELECT */}
