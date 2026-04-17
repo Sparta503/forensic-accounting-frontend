@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import Card from "../../components/ui/Card";
 import Table from "../../components/ui/Table";
+import Card from "../../components/ui/Card";
 import { useDashboardStore } from "../../store/dashboardStore";
 
 import {
@@ -17,6 +17,9 @@ import {
 import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TrendChart";
+
+// Force dynamic rendering to prevent static generation errors
+export const dynamic = "force-dynamic";
 
 export default function AdminDashboard() {
   // ✅ GET DATA FROM STORE
@@ -42,16 +45,7 @@ export default function AdminDashboard() {
     <div className="space-y-8">
 
       {/* TITLE */}
-      <h1
-        className="
-          text-3xl font-bold tracking-wide
-          text-gray-900
-          flex items-center gap-3
-          pb-2
-          border-b border-gray-300
-          w-fit
-        "
-      >
+      <h1 className="text-3xl font-bold tracking-wide text-gray-900 flex items-center gap-3 pb-2 border-b border-gray-300 w-fit">
         <Shield size={32} className="text-blue-600" />
         Admin Dashboard
       </h1>
@@ -82,36 +76,24 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* ✅ CHARTS */}
-      <h2
-        className="
-          text-xl font-semibold
-          text-gray-900
-          tracking-wide
-          flex items-center gap-2
-          border-l-4 border-blue-500
-          pl-3
-        "
-      >
+      {/* CHARTS */}
+      <h2 className="text-xl font-semibold text-gray-900 tracking-wide flex items-center gap-2 border-l-4 border-blue-500 pl-3">
         <Activity size={20} className="text-blue-600" />
         Graphical Summary
       </h2>
 
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* LINE */}
         <FraudTrendChart
           categories={adminCharts.line.categories}
           series={adminCharts.line.series}
         />
 
-        {/* PIE */}
         <RiskPieChart
           labels={adminCharts.pie.labels}
           series={adminCharts.pie.series}
         />
 
-        {/* BAR */}
         <TransactionTrendChart
           categories={adminCharts.bar.categories}
           series={adminCharts.bar.series}
@@ -122,18 +104,9 @@ export default function AdminDashboard() {
       {/* TABLE */}
       <div className="space-y-3 pt-6">
 
-        <h2
-          className="
-            text-xl font-semibold
-            text-gray-900
-            tracking-wide
-            flex items-center gap-2
-            border-l-4 border-blue-500
-            pl-3
-          "
-        >
+        <h2 className="text-xl font-semibold text-gray-900 tracking-wide flex items-center gap-2 border-l-4 border-blue-500 pl-3">
           <Activity size={20} className="text-blue-600" />
-          Recent System Activity
+          Recent Activity
         </h2>
 
         <Table columns={columns} data={adminTable} />
