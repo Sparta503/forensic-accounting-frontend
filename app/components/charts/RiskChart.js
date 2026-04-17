@@ -1,0 +1,50 @@
+"use client";
+
+import dynamic from "next/dynamic";
+
+const Chart = dynamic(() => import("react-apexcharts"), {
+  ssr: false,
+});
+
+export default function RiskPieChart() {
+  const options = {
+    chart: {
+      background: "transparent",
+    },
+
+    labels: ["High Risk", "Medium", "Low"],
+
+    colors: ["#ef4444", "#facc15", "#22c55e"],
+
+    legend: {
+      position: "bottom",
+      labels: {
+        colors: "#e2e8f0",
+      },
+    },
+
+    dataLabels: {
+      enabled: true,
+      style: {
+        colors: ["#fff"],
+      },
+    },
+
+    stroke: {
+      colors: ["#1e3a8a"], // gives clean separation
+    },
+  };
+
+  const series = [44, 33, 23];
+
+  return (
+    <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-6 rounded-2xl shadow-xl">
+
+      <h2 className="text-white font-semibold mb-4">
+        Risk Distribution
+      </h2>
+
+      <Chart options={options} series={series} type="donut" height={260} />
+    </div>
+  );
+}
