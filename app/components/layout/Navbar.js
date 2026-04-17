@@ -55,7 +55,7 @@ export default function Navbar() {
             hover:text-yellow-300
           "
         />
-        TN CyberTech
+        Forensic Accounting Information System
       </h2>
 
       {/* CENTER - SEARCH */}
