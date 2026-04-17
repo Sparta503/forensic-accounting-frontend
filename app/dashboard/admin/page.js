@@ -2,9 +2,26 @@
 
 import Card from "../../components/ui/Card";
 import Table from "../../components/ui/Table";
-import { Users, AlertTriangle, CreditCard, Shield, Activity } from "lucide-react";
+
+import {
+  Users,
+  AlertTriangle,
+  CreditCard,
+  Shield,
+  Activity,
+} from "lucide-react";
+
+// ✅ CHARTS
+import FraudTrendChart from "../../components/charts/FraudPieChart";
+import RiskPieChart from "../../components/charts/RiskChart";
+import TransactionTrendChart from "../../components/charts/TrendChart";
+
+// ✅ HOOK
+import { useAnalysis } from "../../hooks/useAnalysis";
 
 export default function AdminDashboard() {
+  // ✅ ADMIN DATA
+  const analysis = useAnalysis("admin");
 
   const columns = [
     { key: "user", label: "User" },
@@ -25,7 +42,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
 
       {/* TITLE */}
       <h1
@@ -43,7 +60,7 @@ export default function AdminDashboard() {
       </h1>
 
       {/* CARDS */}
-      <div className="grid grid-cols-3 gap-4 translate-x-[100px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <Card
           title="Total Users"
@@ -68,8 +85,35 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* TABLE SECTION */}
-      <div className="space-y-3 pt-16">
+      {/* ✅ CHARTS */}
+      <div className="grid lg:grid-cols-3 gap-6">
+
+        {/* BIG LINE */}
+        <div className="lg:col-span-2">
+          <FraudTrendChart
+            categories={analysis.line.categories}
+            series={analysis.line.series}
+          />
+        </div>
+
+        {/* PIE */}
+        <RiskPieChart
+          labels={analysis.pie.labels}
+          series={analysis.pie.series}
+        />
+
+      </div>
+
+      {/* BAR */}
+      <div>
+        <TransactionTrendChart
+          categories={analysis.bar.categories}
+          series={analysis.bar.series}
+        />
+      </div>
+
+      {/* TABLE */}
+      <div className="space-y-3 pt-6">
 
         <h2
           className="
