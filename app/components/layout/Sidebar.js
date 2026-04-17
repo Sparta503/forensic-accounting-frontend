@@ -31,19 +31,19 @@ export default function Sidebar() {
   const menu = {
     admin: [
       { name: "Admin Home", path: "/dashboard/admin", icon: LayoutDashboard },
-      { name: "Reports", path: "/dashboard/reports", icon: FileText },
-      { name: "Users", path: "/dashboard/users", icon: Users },
+      { name: "Reports", path: "/dashboard/admin/Reports", icon: FileText },
+      { name: "Users", path: "/dashboard/admin/users", icon: Users },
     ],
     auditor: [
       { name: "Audit Dashboard", path: "/dashboard/auditor", icon: ClipboardList },
       { name: "Fraud Logs", path: "/dashboard/auditor/fraud-logs", icon: FileText },
-      { name: "Audit Reports", path: "/dashboard/audit-reports", icon: FileText },
+      { name: "Audit Reports", path: "/dashboard/auditor/audit-reports", icon: FileText },
     ],
     management: [
       { name: "Management Dashboard", path: "/dashboard/management", icon: Building2 },
-      { name: "Department Tasks", path: "/dashboard/tasks", icon: ListTodo },
-      { name: "Staff Overview", path: "/dashboard/staff", icon: Users },
-      { name: "Performance Reports", path: "/dashboard/performance", icon: FileText },
+      { name: "Department Tasks", path: "/dashboard/management/departmenttask", icon: ListTodo },
+      { name: "Staff Overview", path: "/dashboard/management/staffOview", icon: Users },
+      { name: "Performance Reports", path: "/dashboard/management/Reports", icon: FileText },
     ],
   };
 
