@@ -10,7 +10,8 @@ import { Shield, User, Eye, Mail, Lock, Building2 } from "lucide-react";
 
 export default function RegisterForm() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState("user");
+  const [selectedRole, setSelectedRole] = useState("admin");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const {
     register,
@@ -19,11 +20,17 @@ export default function RegisterForm() {
   } = useForm();
 
   const onSubmit = async (data) => {
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 120));
 
     mockRegister(data.email, data.password, selectedRole);
 
-    router.push("/auth/login");
+    // Show success feedback
+    setIsSuccess(true);
+
+    // Redirect after showing success message
+    setTimeout(() => {
+      router.push("/auth/login");
+    }, 2000);
   };
 
   const roles = [
@@ -60,7 +67,7 @@ export default function RegisterForm() {
             return (
               <div
                 key={role.name}
-                onClick={() => !isSubmitting && setSelectedRole(role.name)}
+                onClick={() => !isSubmitting && !isSuccess && setSelectedRole(role.name)}
                 className={`
                   px-3 py-1 rounded-full text-sm flex items-center gap-1 cursor-pointer transition
 
@@ -84,7 +91,7 @@ export default function RegisterForm() {
           <input
             type="email"
             placeholder="Email"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSuccess}
             {...register("email", { required: true })}
             className="
               w-full pl-10 p-3
@@ -103,7 +110,7 @@ export default function RegisterForm() {
           <input
             type="password"
             placeholder="Password"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSuccess}
             {...register("password", { required: true })}
             className="
               w-full pl-10 p-3
@@ -116,20 +123,32 @@ export default function RegisterForm() {
           />
         </div>
 
+        {/* SUCCESS MESSAGE */}
+        {isSuccess && (
+          <div className="mb-4 p-3 bg-green-500/20 border border-green-400/50 rounded-lg text-center">
+            <p className="text-green-300 font-semibold">
+              ✅ Successfully Registered as {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}!
+            </p>
+            <p className="text-green-200/70 text-sm mt-1">
+              Redirecting to login...
+            </p>
+          </div>
+        )}
+
         {/* BUTTON */}
         <button
-          disabled={isSubmitting}
+          disabled={isSubmitting || isSuccess}
           className={`
             w-full p-3 rounded-lg font-semibold transition
 
             ${
-              isSubmitting
-                ? "bg-yellow-400/40 text-black"
+              isSubmitting || isSuccess
+                ? "bg-yellow-400/40 text-black cursor-not-allowed"
                 : "bg-yellow-400 text-black hover:scale-[1.02]"
             }
           `}
         >
-          {isSubmitting ? "Creating..." : "Register"}
+          {isSubmitting ? "Creating..." : isSuccess ? "Registered!" : "Register"}
         </button>
 
         <div className="text-center mt-5 text-sm text-white/80">
