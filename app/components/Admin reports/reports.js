@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Table from "../../components/ui/Table";
 import { Search, Filter } from "lucide-react";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function AdminReports() {
   const columns = [
@@ -17,43 +18,11 @@ export default function AdminReports() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("All");
 
-  const reports = [
-    {
-      id: "RPT-001",
-      title: "Fraud Detection Summary",
-      department: "Finance",
-      risk: "High",
-      status: "Pending Review",
-      date: "2026-04-10",
-    },
-    {
-      id: "RPT-002",
-      title: "Audit Compliance Report",
-      department: "Compliance",
-      risk: "Medium",
-      status: "Approved",
-      date: "2026-04-09",
-    },
-    {
-      id: "RPT-003",
-      title: "System Anomaly Report",
-      department: "IT",
-      risk: "High",
-      status: "Under Review",
-      date: "2026-04-08",
-    },
-    {
-      id: "RPT-004",
-      title: "Staff Activity Report",
-      department: "HR",
-      risk: "Low",
-      status: "Resolved",
-      date: "2026-04-07",
-    },
-  ];
+  // ✅ GET ADMIN REPORTS FROM DASHBOARD STORE
+  const { adminReports } = useDashboardStore();
 
   // 🔥 filtering logic (modern admin pattern)
-  const filteredReports = reports.filter((r) => {
+  const filteredReports = adminReports.filter((r) => {
     const matchesSearch =
       r.title.toLowerCase().includes(search.toLowerCase()) ||
       r.department.toLowerCase().includes(search.toLowerCase()) ||
