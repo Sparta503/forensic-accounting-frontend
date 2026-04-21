@@ -7,11 +7,8 @@ const Chart = dynamic(() => import("react-apexcharts"), {
 });
 
 export default function FraudTrendChart({
-  categories = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  series = [
-    { name: "Fraud-free", data: [30, 40, 35, 50, 49, 60, 70] },
-    { name: "Detected", data: [5, 10, 8, 15, 12, 20, 25] },
-  ],
+  categories,
+  series,
 }) {
   const options = {
     chart: {
