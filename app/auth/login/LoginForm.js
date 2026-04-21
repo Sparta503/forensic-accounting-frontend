@@ -11,6 +11,7 @@ import { Shield, Eye, Mail, Lock, Building2 } from "lucide-react";
 export default function LoginForm() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState("management");
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     register,
@@ -19,7 +20,8 @@ export default function LoginForm() {
   } = useForm();
 
   const onSubmit = async (data) => {
-    await new Promise((r) => setTimeout(r, 1500));
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 150));
 
     const token = mockLogin(data.email, data.password, selectedRole);
     localStorage.setItem("token", token);
@@ -129,22 +131,22 @@ export default function LoginForm() {
         {/* BUTTON */}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isLoading}
           className={`
             w-full p-3 rounded-lg font-semibold flex justify-center items-center gap-2 transition
 
             ${
-              isSubmitting
+              isLoading
                 ? "bg-yellow-400/40 text-black cursor-not-allowed"
                 : "bg-yellow-400 text-black hover:scale-[1.02]"
             }
           `}
         >
-          {isSubmitting && (
+          {isLoading && (
             <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
           )}
 
-          {isSubmitting
+          {isLoading
             ? "Logging in..."
             : `Login as ${
                 roles.find((r) => r.name === selectedRole)?.label
