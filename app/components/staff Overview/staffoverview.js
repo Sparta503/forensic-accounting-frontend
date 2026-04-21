@@ -2,6 +2,7 @@
 
 import Table from "../../components/ui/Table";
 import { Users } from "lucide-react";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function StaffOverview() {
   const columns = [
@@ -11,36 +12,8 @@ export default function StaffOverview() {
     { key: "status", label: "Status" },
   ];
 
-  const staff = [
-    {
-      id: 1,
-      name: "John Mwangi",
-      department: "Finance",
-      role: "Auditor",
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Sarah Lee",
-      department: "IT",
-      role: "Security Analyst",
-      status: "On Leave",
-    },
-    {
-      id: 3,
-      name: "Mike Ross",
-      department: "Compliance",
-      role: "Investigator",
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "Emma Stone",
-      department: "HR",
-      role: "Manager",
-      status: "Inactive",
-    },
-  ];
+  // GET STAFF DATA FROM DASHBOARD STORE
+  const { staffOverview } = useDashboardStore();
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-gray-900">
@@ -64,7 +37,7 @@ export default function StaffOverview() {
         {/* UI TABLE (your component) */}
         <Table
           columns={columns}
-          data={staff.map((s) => ({
+          data={staffOverview.map((s) => ({
             ...s,
             status: (
               <span
