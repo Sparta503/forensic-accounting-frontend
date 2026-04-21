@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Table from "../../components/ui/Table";
 import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function DepartmentTasksPage() {
   const columns = [
@@ -11,63 +12,39 @@ export default function DepartmentTasksPage() {
     { key: "status", label: "Status" },
   ];
 
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      department: "Finance",
-      task: "Review audit reports",
-      status: "Pending",
-    },
-    {
-      id: 2,
-      department: "IT",
-      task: "Investigate login anomalies",
-      status: "In Progress",
-    },
-  ]);
+  // GET TASKS AND ACTIONS FROM DASHBOARD STORE
+  const { departmentTasks, addDepartmentTask, updateTaskStatus, deleteTask } = useDashboardStore();
 
   const [form, setForm] = useState({
     department: "",
     task: "",
   });
 
-  // ➕ Add task
-  const addTask = () => {
+  // Add task
+  const handleAddTask = () => {
     if (!form.department || !form.task) return;
 
-    const newTask = {
-      id: Date.now(),
+    addDepartmentTask({
       department: form.department,
       task: form.task,
-      status: "Pending",
-    };
-
-    setTasks([newTask, ...tasks]);
+    });
     setForm({ department: "", task: "" });
   };
 
-  // 🔁 Cycle status
-  const updateStatus = (id) => {
-    setTasks(
-      tasks.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status:
-                t.status === "Pending"
-                  ? "In Progress"
-                  : t.status === "In Progress"
-                  ? "Done"
-                  : "Pending",
-            }
-          : t
-      )
-    );
+  // Cycle status
+  const handleUpdateStatus = (id, currentStatus) => {
+    const newStatus =
+      currentStatus === "Pending"
+        ? "In Progress"
+        : currentStatus === "In Progress"
+        ? "Done"
+        : "Pending";
+    updateTaskStatus(id, newStatus);
   };
 
-  // ❌ Delete task
-  const deleteTask = (id) => {
-    setTasks(tasks.filter((t) => t.id !== id));
+  // Delete task
+  const handleDeleteTask = (id) => {
+    deleteTask(id);
   };
 
   return (
@@ -102,7 +79,7 @@ export default function DepartmentTasksPage() {
           />
 
           <button
-            onClick={addTask}
+            onClick={handleAddTask}
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2"
           >
             <Plus size={16} />
@@ -120,10 +97,10 @@ export default function DepartmentTasksPage() {
           <span className="text-sm text-gray-400">Live updates enabled</span>
         </div>
 
-        {/* 🔥 UI TABLE USED HERE */}
+        {/* UI TABLE USED HERE */}
         <Table
           columns={columns}
-          data={tasks.map((t) => ({
+          data={departmentTasks.map((t) => ({
             ...t,
             status: (
               <span
@@ -145,7 +122,7 @@ export default function DepartmentTasksPage() {
         {/* Actions (separate row controls) */}
         <div className="mt-4 flex flex-wrap gap-3 text-sm">
 
-          {tasks.map((task) => (
+          {departmentTasks.map((task) => (
             <div
               key={task.id}
               className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg"
@@ -155,7 +132,7 @@ export default function DepartmentTasksPage() {
               </span>
 
               <button
-                onClick={() => updateStatus(task.id)}
+                onClick={() => handleUpdateStatus(task.id, task.status)}
                 className="text-blue-600 hover:text-blue-800"
                 title="Change status"
               >
@@ -163,7 +140,7 @@ export default function DepartmentTasksPage() {
               </button>
 
               <button
-                onClick={() => deleteTask(task.id)}
+                onClick={() => handleDeleteTask(task.id)}
                 className="text-red-500 hover:text-red-700"
                 title="Delete"
               >
