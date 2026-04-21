@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Table from "../../components/ui/Table";
 import { Search, Users } from "lucide-react";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function UsersPage() {
   const columns = [
@@ -15,47 +16,23 @@ export default function UsersPage() {
 
   const [search, setSearch] = useState("");
 
-  const users = [
-    {
-      id: 1,
-      name: "John Mwangi",
-      email: "john@example.com",
-      role: "Admin",
-      status: "Active",
-      lastActive: "2026-04-16",
-    },
-    {
-      id: 2,
-      name: "Sarah Lee",
-      email: "sarah@example.com",
-      role: "Auditor",
-      status: "Active",
-      lastActive: "2026-04-15",
-    },
-    {
-      id: 3,
-      name: "Mike Ross",
-      email: "mike@example.com",
-      role: "User",
-      status: "Inactive",
-      lastActive: "2026-04-10",
-    },
-    {
-      id: 4,
-      name: "Emma Stone",
-      email: "emma@example.com",
-      role: "Manager",
-      status: "Suspended",
-      lastActive: "2026-04-08",
-    },
-  ];
+  // GET USERS FROM DASHBOARD STORE
+  const { users } = useDashboardStore();
 
-  // 🔍 search filter
+  // search filter
   const filteredUsers = users.filter((u) =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     u.role.toLowerCase().includes(search.toLowerCase())
   );
+
+  // UPDATE DASHBOARD STATS to match user count
+  const { setStats } = useDashboardStore.getState();
+  // Auto-update admin stats when user count changes
+  const currentStats = useDashboardStore.getState().stats.admin;
+  if (currentStats.totalUsers !== users.length) {
+    setStats("admin", { ...currentStats, totalUsers: users.length });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-gray-900">
