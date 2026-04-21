@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Table from "../../components/ui/Table";
 import { Filter } from "lucide-react";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function FraudLogPage() {
   const columns = [
@@ -20,47 +21,11 @@ export default function FraudLogPage() {
     status: "All",
   });
 
-  const data = [
-    {
-      id: "FRD-001",
-      user: "John Doe",
-      type: "Card Fraud",
-      amount: "$1,200",
-      risk: "High",
-      status: "Investigating",
-      date: "2026-04-12",
-    },
-    {
-      id: "FRD-002",
-      user: "Sarah Lee",
-      type: "Login Anomaly",
-      amount: "$0",
-      risk: "Medium",
-      status: "Reviewed",
-      date: "2026-04-11",
-    },
-    {
-      id: "FRD-003",
-      user: "Mike Ross",
-      type: "Transaction Spike",
-      amount: "$5,800",
-      risk: "High",
-      status: "Blocked",
-      date: "2026-04-10",
-    },
-    {
-      id: "FRD-004",
-      user: "Emma Stone",
-      type: "Geo Mismatch",
-      amount: "$320",
-      risk: "Low",
-      status: "Resolved",
-      date: "2026-04-09",
-    },
-  ];
+  // ✅ GET FRAUD LOGS FROM DASHBOARD STORE
+  const { fraudLogs } = useDashboardStore();
 
   // 🔥 FILTER LOGIC (core upgrade)
-  const filteredData = data.filter((item) => {
+  const filteredData = fraudLogs.filter((item) => {
     const riskMatch =
       filter.risk === "All" || item.risk === filter.risk;
 
