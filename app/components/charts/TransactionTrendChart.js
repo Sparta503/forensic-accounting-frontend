@@ -7,13 +7,8 @@ const Chart = dynamic(() => import("react-apexcharts"), {
 });
 
 export default function TransactionTrendChart({
-  categories = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  series = [
-    {
-      name: "Transactions",
-      data: [120, 200, 150, 300, 250, 400, 350],
-    },
-  ],
+  categories,
+  series,
 }) {
   const safeCategories = categories ?? [];
   const safeSeries = series ?? [];
