@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   LineChart,
   Line,
@@ -9,25 +8,21 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function PerformanceReport() {
-  const [reports, setReports] = useState([]);
+  // ✅ GET AUDIT REPORTS FROM DASHBOARD STORE
+  const { auditReports, performanceReports } = useDashboardStore();
 
-  // 📥 Load generated audit reports
-  useEffect(() => {
-    const stored =
-      JSON.parse(localStorage.getItem("auditReports")) || [];
-    setReports(stored);
-  }, []);
-
-  // 📊 Convert reports → chart data
-  const chartData = reports.map((r, index) => {
-    const riskMatch = r.riskScore?.match(/\d+/);
+  // � Convert reports → chart data
+  const allReports = [...auditReports, ...performanceReports];
+  const chartData = allReports.map((r, index) => {
+    const riskMatch = r.riskLevel?.match(/\d+/) || r.riskScore?.match(/\d+/);
     const riskValue = riskMatch ? Number(riskMatch[0]) : 0;
 
     return {
       name: `Report ${index + 1}`,
-      risk: riskValue,
+      risk: riskValue || 50, // default if no numeric value
     };
   });
 
@@ -46,7 +41,7 @@ export default function PerformanceReport() {
           Risk Score Trends (From Audit Reports)
         </h2>
 
-        {reports.length === 0 ? (
+        {allReports.length === 0 ? (
           <p className="text-gray-500 text-sm">
             No reports available yet. Generate audit reports first.
           </p>
@@ -71,16 +66,16 @@ export default function PerformanceReport() {
 
         <div className="bg-white p-4 border rounded-lg">
           <p className="text-sm text-gray-500">Total Reports</p>
-          <p className="text-xl font-bold">{reports.length}</p>
+          <p className="text-xl font-bold">{allReports.length}</p>
         </div>
 
         <div className="bg-white p-4 border rounded-lg">
           <p className="text-sm text-gray-500">Avg Risk Score</p>
           <p className="text-xl font-bold">
-            {reports.length
+            {allReports.length
               ? Math.round(
                   chartData.reduce((a, b) => a + b.risk, 0) /
-                    reports.length
+                    allReports.length
                 )
               : 0}
           </p>
