@@ -7,8 +7,8 @@ const Chart = dynamic(() => import("react-apexcharts"), {
 });
 
 export default function RiskPieChart({
-  labels = ["High Risk", "Medium", "Low"],
-  series = [44, 33, 23]
+  labels,
+  series
 }) {
   const options = {
     chart: {
