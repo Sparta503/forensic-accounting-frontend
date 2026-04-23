@@ -46,9 +46,14 @@ function AuditorDashboardContent() {
   const auditorTable = tableData.auditor;
 
   const columns = [
-    { key: "id", label: "Transaction ID" },
-    { key: "amount", label: "Amount" },
-    { key: "status", label: "Status" },
+    { key: "Date", label: "Date" },
+    { key: "Mode", label: "Mode" },
+    { key: "Category", label: "Category" },
+    { key: "Subcategory", label: "Subcategory" },
+    { key: "Note", label: "Note" },
+    { key: "Amount", label: "Amount" },
+    { key: "Income/Expense", label: "Income/Expense" },
+    { key: "Currency", label: "Currency" },
   ];
 
   return (
