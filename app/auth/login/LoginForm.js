@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { mockLogin } from "../../lib/mockAuth";
+import { apiLogin, extractAccessToken } from "../../lib/apiClient";
+import { getUserFromToken } from "../../lib/auth";
 
 import { Shield, Eye, Mail, Lock, Building2 } from "lucide-react";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedRole, setSelectedRole] = useState("management");
+  const [showRegistered, setShowRegistered] = useState(false);
+  const [registeredRole, setRegisteredRole] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const registered = searchParams.get("registered");
+    const role = searchParams.get("role");
+
+    if (registered === "1") {
+      setShowRegistered(true);
+      setRegisteredRole(role);
+
+      if (role === "admin" || role === "auditor" || role === "management") {
+        setSelectedRole(role);
+      }
+    }
+  }, [searchParams]);
 
   const {
     register,
@@ -21,16 +39,25 @@ export default function LoginForm() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 150));
+    try {
+      const res = await apiLogin({
+        email: data.email,
+        password: data.password,
+      });
 
-    const token = mockLogin(data.email, data.password, selectedRole);
-    localStorage.setItem("token", token);
+      const token = extractAccessToken(res);
+      if (!token) {
+        throw new Error("Login succeeded but no access token was returned");
+      }
 
-    const user = JSON.parse(atob(token));
-    const dashboardPath =
-      user?.role === "management" ? "management" : user?.role;
+      localStorage.setItem("token", token);
 
-    router.push(`/dashboard/${dashboardPath}`);
+      const user = getUserFromToken();
+      const dashboardPath = user?.role === "management" ? "management" : user?.role;
+      router.push(`/dashboard/${dashboardPath || "management"}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const roles = [
@@ -50,6 +77,12 @@ export default function LoginForm() {
         shadow-[0_20px_80px_rgba(0,0,0,0.8)]
       "
     >
+
+      {showRegistered && (
+        <div className="mb-4 p-3 rounded-lg bg-green-500/15 border border-green-400/40 text-green-200 text-sm">
+          Successfully registered{registeredRole ? ` as ${registeredRole}` : ""}. Please log in.
+        </div>
+      )}
 
       {/* TITLE */}
       <h2 className="text-3xl font-bold mb-2 tracking-wide">
