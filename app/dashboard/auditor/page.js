@@ -28,18 +28,16 @@ function AuditorDashboardContent() {
   const searchQuery = searchParams.get("search") || "";
 
   // ✅ STORE
-  const {
-    stats,
-    chartData,
-    tableData,
-    fetchDashboardData,
-    isLoading,
-  } = useDashboardStore();
+  const stats = useDashboardStore((s) => s.stats);
+  const chartData = useDashboardStore((s) => s.chartData);
+  const tableData = useDashboardStore((s) => s.tableData);
+  const fetchDashboardData = useDashboardStore((s) => s.fetchDashboardData);
+  const isLoading = useDashboardStore((s) => s.isLoading);
 
   // ✅ FETCH DATA
   useEffect(() => {
     fetchDashboardData("auditor");
-  }, [fetchDashboardData]);
+  }, []);
 
   const auditorStats = stats.auditor;
   const auditorCharts = chartData.auditor;
