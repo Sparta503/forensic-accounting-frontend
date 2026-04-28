@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { UploadCloud, FileText, Loader2, CheckCircle } from "lucide-react";
-import { useDashboardStore } from "../../store/dashboardStore";
+import { apiRequest } from "../../lib/apiClient";
 
 export default function AuditReportsPage() {
   const [file, setFile] = useState(null);
   const [report, setReport] = useState(null);
 
-  // GET STORE ACTIONS
-  const { processAuditReport, isLoading } = useDashboardStore();
+  const [transactionId, setTransactionId] = useState("");
+  const [checkResult, setCheckResult] = useState(null);
+  const [checkError, setCheckError] = useState("");
+  const [isChecking, setIsChecking] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   // Handle file upload
   const handleFileChange = (e) => {
@@ -21,27 +25,33 @@ export default function AuditReportsPage() {
   const generateReport = async () => {
     if (!file) return;
 
-    // Simulated analysis findings (in real app, this comes from backend API)
-    const findings = [
-      { user: "Unknown User", type: "Suspicious Login", amount: "$0", risk: "High" },
-      { user: "System Alert", type: "Transaction Spike", amount: "$12,500", risk: "High" },
-      { user: "Auto-Detect", type: "Geo Mismatch", amount: "$850", risk: "Medium" },
-    ];
-
-    // Process report - this updates fraud logs, stats, and charts in the store
-    const result = await processAuditReport(file, findings);
-
-    // Set local report for display
+    // No backend document-analysis endpoint is available in Swagger yet.
+    // Keep the UI but surface a clear message.
     setReport({
-      title: "Audit Summary Report",
-      riskScore: result.highRiskCount > 0 ? "High (78/100)" : "Medium (45/100)",
-      summary: `Analysis complete. ${result.totalFindings} anomalies detected including unusual transaction spikes, inconsistent login patterns, and flagged financial movements.`,
-      findings: findings.map((f) => `${f.type} - ${f.user} (${f.risk} Risk)`),
-      recommendation: result.highRiskCount > 0
-        ? "Immediate account review and temporary transaction freeze recommended."
-        : "Continue monitoring and schedule routine review.",
-      result,
+      title: "Audit Reports",
+      riskScore: "N/A",
+      summary: "Backend document analysis endpoint is not available yet. Use 'Check Transaction Fraud' below.",
+      findings: [],
+      recommendation: "",
     });
+  };
+
+  const checkFraud = async () => {
+    const id = transactionId.trim();
+    if (!id) return;
+
+    setIsChecking(true);
+    setCheckError("");
+    setCheckResult(null);
+
+    try {
+      const res = await apiRequest(`/fraud/check/${encodeURIComponent(id)}`);
+      setCheckResult(res);
+    } catch (e) {
+      setCheckError(e?.message || "Failed to check fraud");
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   return (
@@ -87,6 +97,37 @@ export default function AuditReportsPage() {
         </button>
       </div>
 
+      <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-3">Check Transaction Fraud</h2>
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <input
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value)}
+            placeholder="Transaction ID"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm"
+          />
+          <button
+            type="button"
+            onClick={checkFraud}
+            disabled={isChecking || !transactionId.trim()}
+            className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
+          >
+            {isChecking ? "Checking..." : "Check"}
+          </button>
+        </div>
+
+        {checkError ? (
+          <div className="mt-3 text-sm text-red-700">{checkError}</div>
+        ) : null}
+
+        {checkResult ? (
+          <pre className="mt-3 p-3 rounded bg-gray-50 border border-gray-200 text-xs overflow-auto">
+            {JSON.stringify(checkResult, null, 2)}
+          </pre>
+        ) : null}
+      </div>
+
       {/* Report Output */}
       {report && (
         <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
@@ -107,17 +148,18 @@ export default function AuditReportsPage() {
 
           <h3 className="font-semibold mb-2">Findings</h3>
           <ul className="list-disc pl-6 text-gray-700 mb-4">
-            {report.findings.map((item, index) => (
-              <li key={index}>{item}</li>
-            ))}
+            {Array.isArray(report.findings) && report.findings.length
+              ? report.findings.map((item, index) => <li key={index}>{item}</li>)
+              : null}
           </ul>
 
-          <p className="text-sm font-medium text-red-600">
-            Recommendation: {report.recommendation}
-          </p>
+          {report.recommendation ? (
+            <p className="text-sm font-medium text-red-600">
+              Recommendation: {report.recommendation}
+            </p>
+          ) : null}
         </div>
       )}
-
     </div>
   );
 }
