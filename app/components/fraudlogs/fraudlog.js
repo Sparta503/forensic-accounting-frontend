@@ -1,39 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Table from "../../components/ui/Table";
 import { Filter } from "lucide-react";
-import { useDashboardStore } from "../../store/dashboardStore";
+import { apiRequest } from "../../lib/apiClient";
 
 export default function FraudLogPage() {
   const columns = [
-    { key: "id", label: "Case ID" },
-    { key: "user", label: "User" },
-    { key: "type", label: "Fraud Type" },
-    { key: "amount", label: "Amount" },
-    { key: "risk", label: "Risk Level" },
+    { key: "transaction_id", label: "Transaction ID" },
+    { key: "risk_score", label: "Risk Score" },
+    { key: "risk", label: "Risk" },
+    { key: "risk_level", label: "Risk Level" },
     { key: "status", label: "Status" },
-    { key: "date", label: "Date" },
+    { key: "reason", label: "Reason" },
+    { key: "fraud_reasons", label: "Fraud Reasons" },
+    { key: "timestamp", label: "Timestamp" },
   ];
+
+  const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [checkId, setCheckId] = useState("");
+  const [checkResult, setCheckResult] = useState(null);
+  const [checkError, setCheckError] = useState("");
+  const [isChecking, setIsChecking] = useState(false);
 
   const [filter, setFilter] = useState({
     risk: "All",
     status: "All",
   });
 
-  // ✅ GET FRAUD LOGS FROM DASHBOARD STORE
-  const { fraudLogs } = useDashboardStore();
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const res = await apiRequest("/fraud/flagged");
+        const items = Array.isArray(res) ? res : res?.items || res?.data || res?.results || [];
+        if (mounted) setRows(items);
+      } catch (e) {
+        if (mounted) setError(e?.message || "Failed to load flagged transactions");
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // 🔥 FILTER LOGIC (core upgrade)
-  const filteredData = fraudLogs.filter((item) => {
-    const riskMatch =
-      filter.risk === "All" || item.risk === filter.risk;
+  const filteredData = useMemo(() => {
+    return rows.filter((item) => {
+      const riskValue = (item?.risk ?? item?.risk_level ?? item?.riskLevel ?? "").toString();
+      const statusValue = (item?.status ?? "").toString();
 
-    const statusMatch =
-      filter.status === "All" || item.status === filter.status;
+      const riskMatch = filter.risk === "All" || riskValue === filter.risk;
+      const statusMatch = filter.status === "All" || statusValue === filter.status;
 
-    return riskMatch && statusMatch;
-  });
+      return riskMatch && statusMatch;
+    });
+  }, [rows, filter.risk, filter.status]);
+
+  const checkFraud = async () => {
+    const id = checkId.trim();
+    if (!id) return;
+
+    setIsChecking(true);
+    setCheckError("");
+    setCheckResult(null);
+
+    try {
+      const res = await apiRequest(`/fraud/check/${encodeURIComponent(id)}`);
+      setCheckResult(res);
+    } catch (e) {
+      setCheckError(e?.message || "Failed to check fraud");
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-6">
@@ -77,10 +128,45 @@ export default function FraudLogPage() {
         </div>
       </div>
 
+      <div className="mb-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <input
+            value={checkId}
+            onChange={(e) => setCheckId(e.target.value)}
+            placeholder="Transaction ID (for /fraud/check/{transaction_id})"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm"
+          />
+          <button
+            type="button"
+            onClick={checkFraud}
+            disabled={isChecking || !checkId.trim()}
+            className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
+          >
+            {isChecking ? "Checking..." : "Check"}
+          </button>
+        </div>
+
+        {checkError ? (
+          <div className="mt-3 text-sm text-red-700">{checkError}</div>
+        ) : null}
+
+        {checkResult ? (
+          <pre className="mt-3 p-3 rounded bg-gray-50 border border-gray-200 text-xs overflow-auto">
+            {JSON.stringify(checkResult, null, 2)}
+          </pre>
+        ) : null}
+      </div>
+
+      {error ? (
+        <div className="mb-4 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-sm">{error}</div>
+      ) : null}
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
         <Table columns={columns} data={filteredData} />
       </div>
+
+      {isLoading ? <div className="text-sm text-gray-600 mt-3">Loading...</div> : null}
     </div>
   );
 }
