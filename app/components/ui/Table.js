@@ -27,13 +27,13 @@ export default function Table({ columns, data, searchQuery = "" }) {
   return (
     <div className="relative w-full">
 
-      {/* 🌑 OUTER DEPTH BASE */}
+      {/* OUTER DEPTH BASE */}
       <div className="absolute inset-0 translate-y-4 scale-[0.99] bg-black/40 blur-2xl rounded-2xl" />
 
-      {/* 💡 GLOW AURA */}
+      {/* GLOW AURA */}
       <div className="absolute inset-0 bg-yellow-500/10 blur-3xl rounded-2xl opacity-70" />
 
-      {/* 🧊 MAIN TABLE CONTAINER */}
+      {/* MAIN TABLE CONTAINER */}
       <div className="relative bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.25)] border border-gray-100 p-4 transition-all duration-300 hover:shadow-[0_25px_80px_rgba(0,0,0,0.4)] hover:-translate-y-1">
 
         {/* SCROLL AREA */}
@@ -76,7 +76,7 @@ export default function Table({ columns, data, searchQuery = "" }) {
                         key={col.key}
                         className="px-4 py-3 first:rounded-l-xl last:rounded-r-xl border-t border-b border-black/20"
                       >
-                        {row[col.key] ?? "-"}
+                        {typeof col.render === "function" ? col.render(row) : (row[col.key] ?? "-")}
                       </td>
                     ))}
                   </tr>
