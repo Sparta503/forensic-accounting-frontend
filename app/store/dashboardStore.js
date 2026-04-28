@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiRequest } from '../lib/apiClient';
 
 // Check if we're in browser
 const isBrowser = typeof window !== 'undefined';
@@ -120,6 +121,15 @@ export const useDashboardStore = create((set, get) => ({
     { id: "FRD-004", user: "Emma Stone", type: "Geo Mismatch", amount: "$320", risk: "Low", status: "Resolved", date: "2026-04-09" },
   ],
 
+  // 🔹 FLAGGED TRANSACTIONS (high-risk transactional data)
+  flaggedTransactions: [
+    { transaction_id: "TXN-20001", user: "Alice Johnson", amount: "$8,500", risk: "High", risk_score: 92, status: "Flagged", reason: "Suspicious withdrawal pattern", fraud_reasons: ["Large amount", "Unusual time"], timestamp: "2026-04-12 14:32" },
+    { transaction_id: "TXN-20002", user: "Bob Martinez", amount: "$3,200", risk: "High", risk_score: 87, status: "Flagged", reason: "Location mismatch", fraud_reasons: ["Geo mismatch", "Speed of transaction"], timestamp: "2026-04-12 13:15" },
+    { transaction_id: "TXN-20003", user: "Carol White", amount: "$15,000", risk: "High", risk_score: 95, status: "Flagged", reason: "Duplicate transaction", fraud_reasons: ["Duplicate detection", "High amount"], timestamp: "2026-04-12 11:45" },
+    { transaction_id: "TXN-20004", user: "Diana Lee", amount: "$2,100", risk: "Medium", risk_score: 65, status: "Flagged", reason: "Unusual beneficiary", fraud_reasons: ["New beneficiary", "Pattern change"], timestamp: "2026-04-11 16:20" },
+    { transaction_id: "TXN-20005", user: "Eve Taylor", amount: "$5,600", risk: "High", risk_score: 88, status: "Flagged", reason: "Multiple rapid transactions", fraud_reasons: ["Velocity check", "Rapid succession"], timestamp: "2026-04-11 10:30" },
+  ],
+
   // 🔹 AUDIT REPORTS HISTORY
   auditReports: [],
 
@@ -182,21 +192,171 @@ export const useDashboardStore = create((set, get) => ({
     }
 
     set({ isLoading: true });
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Generate mock data based on role
-    const data = generateMockData(role);
-    
-    set((state) => ({
-      stats: { ...state.stats, [role]: data.stats },
-      chartData: { ...state.chartData, [role]: data.chartData },
-      tableData: { ...state.tableData, [role]: data.tableData },
-      isLoading: false,
-    }));
+    try {
+      const safeArray = (value) => {
+        if (Array.isArray(value)) return value;
+        if (value && typeof value === "object") {
+          if (Array.isArray(value.items)) return value.items;
+          if (Array.isArray(value.data)) return value.data;
+          if (Array.isArray(value.results)) return value.results;
+        }
+        return null;
+      };
 
-    return data;
+      const safeCount = (value) => {
+        if (Array.isArray(value)) return value.length;
+        if (value && typeof value === "object") {
+          const n =
+            value.total ??
+            value.count ??
+            value.total_count ??
+            value.totalCount ??
+            value.total_records ??
+            value.totalRecords;
+          if (typeof n === "number") return n;
+
+          const arr = safeArray(value);
+          if (arr) return arr.length;
+        }
+        return null;
+      };
+
+      const toCsvRow = (t) => {
+        if (!t || typeof t !== "object") return null;
+
+        const date =
+          t.Date ??
+          t.date ??
+          t.transaction_date ??
+          t.transactionDate ??
+          t.created_at ??
+          t.createdAt ??
+          "";
+
+        return {
+          Date: date,
+          Mode: t.Mode ?? t.mode ?? t.payment_mode ?? t.paymentMode ?? "",
+          Category: t.Category ?? t.category ?? "",
+          Subcategory: t.Subcategory ?? t.subcategory ?? t.sub_category ?? t.subCategory ?? "",
+          Note: t.Note ?? t.note ?? t.description ?? "",
+          Amount: t.Amount ?? t.amount ?? 0,
+          "Income/Expense": t["Income/Expense"] ?? t.income_expense ?? t.incomeExpense ?? t.type ?? "",
+          Currency: t.Currency ?? t.currency ?? "",
+        };
+      };
+
+      const [transactionsRes, flaggedRes, fraudSummaryRes, riskAnalysisRes] = await Promise.all([
+        apiRequest("/transactions/").catch(() => null),
+        role === "auditor" ? apiRequest("/fraud/flagged").catch(() => null) : Promise.resolve(null),
+        role === "admin" ? apiRequest("/reports/fraud-summary").catch(() => null) : Promise.resolve(null),
+        role === "admin" ? apiRequest("/reports/risk-analysis").catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const transactions = safeArray(transactionsRes) || [];
+      const flagged = safeArray(flaggedRes) || [];
+      const transactionsCount = safeCount(transactionsRes) ?? transactions.length;
+      const flaggedCount = safeCount(flaggedRes) ?? flagged.length;
+
+      const flaggedFromTransactions = transactions.filter((t) => t?.is_flagged === true).length;
+      const fraudFromTransactions = transactions.filter((t) => t?.is_fraud === true).length;
+      const uniqueUsersFromTransactions = new Set(
+        transactions
+          .map((t) => t?.user_id)
+          .filter((v) => typeof v === "string" && v.length > 0)
+      ).size;
+
+      const highRiskFromTransactions = transactions.filter((t) => {
+        const score = t?.risk_score;
+        return typeof score === "number" && score >= 70;
+      }).length;
+
+      if (transactionsCount === 0 && typeof console !== "undefined") {
+        console.warn("[dashboardStore] /transactions/ returned 0 items", transactionsRes);
+      }
+
+      set((state) => {
+        const next = {
+          stats: { ...state.stats },
+          chartData: { ...state.chartData },
+          tableData: { ...state.tableData },
+          isLoading: false,
+        };
+
+        if (role === "auditor") {
+          const rows = transactions.map(toCsvRow).filter(Boolean);
+
+          next.tableData.auditor = rows.length ? rows : state.tableData.auditor;
+
+          next.stats.auditor = {
+            ...state.stats.auditor,
+            flaggedTransactions:
+              flaggedCount ||
+              flaggedFromTransactions ||
+              rows.length ||
+              state.stats.auditor.flaggedTransactions,
+            highRiskCases: highRiskFromTransactions || state.stats.auditor.highRiskCases,
+            resolvedCases: state.stats.auditor.resolvedCases,
+          };
+        }
+
+        if (role === "admin") {
+          next.stats.admin = {
+            ...state.stats.admin,
+            transactions: transactionsCount || state.stats.admin.transactions,
+            fraudAlerts:
+              flaggedFromTransactions ||
+              fraudFromTransactions ||
+              (fraudSummaryRes && typeof fraudSummaryRes === "object" && (
+                fraudSummaryRes.fraud_alerts ??
+                fraudSummaryRes.fraudAlerts ??
+                fraudSummaryRes.total_fraud_alerts ??
+                fraudSummaryRes.totalFraudAlerts ??
+                fraudSummaryRes.alerts ??
+                fraudSummaryRes.total_alerts ??
+                fraudSummaryRes.totalAlerts
+              )) ||
+              state.stats.admin.fraudAlerts,
+          };
+
+          if (riskAnalysisRes && typeof riskAnalysisRes === "object") {
+            next.stats.admin = {
+              ...next.stats.admin,
+              totalUsers: riskAnalysisRes.total_users ?? riskAnalysisRes.totalUsers ?? next.stats.admin.totalUsers,
+            };
+          } else if (uniqueUsersFromTransactions > 0) {
+            next.stats.admin = {
+              ...next.stats.admin,
+              totalUsers: uniqueUsersFromTransactions,
+            };
+          }
+        }
+
+        if (role === "management") {
+          const fallback = generateMockData("management");
+          next.stats.management = {
+            ...state.stats.management,
+            activeProjects: state.stats.management.activeProjects || fallback.stats.activeProjects,
+            teamMembers: state.stats.management.teamMembers || fallback.stats.teamMembers,
+            revenueGrowth: state.stats.management.revenueGrowth || fallback.stats.revenueGrowth,
+          };
+        }
+
+        return next;
+      });
+    } catch (e) {
+      if (typeof console !== "undefined") {
+        console.error("[dashboardStore] fetchDashboardData failed", { role, error: e });
+      }
+      const data = generateMockData(role);
+
+      set((state) => ({
+        stats: { ...state.stats, [role]: data.stats },
+        chartData: { ...state.chartData, [role]: data.chartData },
+        tableData: { ...state.tableData, [role]: data.tableData },
+        isLoading: false,
+      }));
+    }
   },
 
   // 🔹 GETTERS FOR CONVENIENCE
