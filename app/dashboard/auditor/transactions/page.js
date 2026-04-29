@@ -202,34 +202,40 @@ export default function AuditorTransactionsPage() {
       ) : null}
 
       {editing ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          <div className="text-sm font-semibold text-gray-900">Edit Transaction</div>
-          <div className="text-xs text-gray-500">
-            Transaction ID: {String(getTransactionId(editing) ?? "-")}
-          </div>
-          <textarea
-            value={editBodyText}
-            onChange={(e) => setEditBodyText(e.target.value)}
-            rows={12}
-            className="w-full font-mono text-xs border border-gray-300 rounded-lg p-3"
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={onCancelEdit}
           />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onSaveEdit}
-              disabled={actionLoadingId != null}
-              className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              disabled={actionLoadingId != null}
-              className="px-4 py-2 rounded-lg bg-gray-200 text-gray-900 text-sm disabled:opacity-50"
-            >
-              Cancel
-            </button>
+          <div className="relative mt-20 w-full max-w-3xl bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-lg">
+            <div className="text-sm font-semibold text-gray-900">Edit Transaction</div>
+            <div className="text-xs text-gray-500">
+              Transaction ID: {String(getTransactionId(editing) ?? "-")}
+            </div>
+            <textarea
+              value={editBodyText}
+              onChange={(e) => setEditBodyText(e.target.value)}
+              rows={12}
+              className="w-full font-mono text-xs bg-gray-100 text-gray-800 border border-gray-300 rounded-lg p-3"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onSaveEdit}
+                disabled={actionLoadingId != null}
+                className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                disabled={actionLoadingId != null}
+                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-900 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
