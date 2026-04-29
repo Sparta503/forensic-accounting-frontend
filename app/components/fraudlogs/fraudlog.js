@@ -12,12 +12,12 @@ export default function FraudLogPage() {
     { key: "risk", label: "Risk" },
     { key: "risk_level", label: "Risk Level" },
     { key: "status", label: "Status" },
-    { key: "reason", label: "Reason" },
     { key: "fraud_reasons", label: "Fraud Reasons" },
     { key: "timestamp", label: "Timestamp" },
   ];
 
   const [rows, setRows] = useState([]);
+  const [lastResponse, setLastResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -40,8 +40,53 @@ export default function FraudLogPage() {
 
       try {
         const res = await apiRequest("/fraud/flagged");
-        const items = Array.isArray(res) ? res : res?.items || res?.data || res?.results || [];
-        if (mounted) setRows(items);
+        if (mounted) setLastResponse(res);
+        const items = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.flagged_transactions)
+          ? res.flagged_transactions
+          : res?.items || res?.data || res?.results || [];
+
+        // Normalize API objects to expected column keys
+        const normalized = (items || []).map((r) => {
+          const txId = String(r.transaction_id ?? r._id ?? r.id ?? r.transactionId ?? "");
+          // Accept numeric `risk` as the score when risk_score is not provided
+          const score =
+            r.risk_score ?? r.riskScore ?? r.score ?? (typeof r.risk === "number" ? r.risk : null);
+          const fraudReasons = r.fraud_reasons ?? r.reasons ?? [];
+
+          // If `risk` is numeric we already captured it as score; prefer textual risk otherwise
+          const derivedRisk = typeof r.risk === "number" ? "" : r.risk ?? r.risk_level ?? (r.is_fraud ? "Fraud" : "");
+
+          const derivedRiskLevel =
+            r.risk_level ??
+            r.riskLevel ??
+            (typeof score === "number"
+              ? score >= 70
+                ? "High"
+                : score >= 40
+                ? "Medium"
+                : "Low"
+              : "");
+
+          const derivedStatus = r.status ?? (r.is_flagged ? "Flagged" : r.is_fraud ? "Suspected" : "");
+
+          const derivedReason = r.reason ?? (Array.isArray(fraudReasons) ? fraudReasons.join(", ") : fraudReasons) ?? "";
+
+          return {
+            transaction_id: txId,
+            risk_score: score ?? "",
+            risk: derivedRisk,
+            risk_level: derivedRiskLevel,
+            status: derivedStatus,
+            reason: derivedReason,
+            fraud_reasons: Array.isArray(fraudReasons) ? fraudReasons : [],
+            timestamp: r.timestamp ?? r.date ?? r.transaction_date ?? r.Date ?? "",
+            __raw: r,
+          };
+        });
+
+        if (mounted) setRows(normalized);
       } catch (e) {
         if (mounted) setError(e?.message || "Failed to load flagged transactions");
       } finally {
