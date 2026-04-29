@@ -33,7 +33,7 @@ export default function FraudSummaryPage() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-screen bg-gray-50 p-6 space-y-4">
       <h1 className="text-2xl font-bold text-gray-900">Fraud Summary</h1>
 
       {error ? (
@@ -42,7 +42,7 @@ export default function FraudSummaryPage() {
 
       {isLoading ? <div className="text-sm text-gray-500">Loading...</div> : null}
 
-      <pre className="p-4 rounded bg-white border border-gray-200 text-xs overflow-auto">
+      <pre className="p-4 rounded bg-white border border-gray-300 text-gray-900 text-xs overflow-auto shadow-sm">
         {JSON.stringify(data, null, 2)}
       </pre>
     </div>
