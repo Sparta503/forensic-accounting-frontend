@@ -53,8 +53,25 @@ export default function LoginForm() {
       localStorage.setItem("token", token);
 
       const user = getUserFromToken();
-      const dashboardPath = user?.role === "management" ? "management" : user?.role;
-      router.push(`/dashboard/${dashboardPath || "management"}`);
+      const rawRole = typeof user?.role === "string" ? user.role : "";
+      const normalizedRole = rawRole.trim().toLowerCase();
+
+      const selected = typeof selectedRole === "string" ? selectedRole.trim().toLowerCase() : "management";
+      const effectiveRole =
+        normalizedRole === "admin" || normalizedRole === "administrator"
+          ? "admin"
+          : normalizedRole === "auditor"
+            ? "auditor"
+            : normalizedRole === "management" || normalizedRole === "manager"
+              ? "management"
+              : selected;
+
+      localStorage.setItem("app_role", effectiveRole);
+
+      const dashboardPath =
+        effectiveRole === "admin" ? "admin" : effectiveRole === "auditor" ? "auditor" : "management";
+
+      router.push(`/dashboard/${dashboardPath}`);
     } finally {
       setIsLoading(false);
     }
