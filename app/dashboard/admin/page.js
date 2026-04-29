@@ -36,6 +36,11 @@ export default function AdminDashboard() {
 
   const adminStats = stats.admin;
   const adminCharts = chartData.admin;
+  const safeAdminCharts = adminCharts || {
+    line: { categories: [], series: [] },
+    pie: { labels: [], series: [] },
+    bar: { categories: [], series: [{ name: "", data: [] }] },
+  };
   const adminTable = tableData.admin;
 
   const columns = [
@@ -59,7 +64,7 @@ export default function AdminDashboard() {
 
         <Card
           title="Total Users"
-          value={isLoading ? "..." : adminStats.totalUsers.toLocaleString()}
+          value={isLoading ? "..." : Number(adminStats.totalUsers || 0).toLocaleString()}
           icon={Users}
           color="blue"
         />
@@ -73,7 +78,7 @@ export default function AdminDashboard() {
 
         <Card
           title="Transactions"
-          value={isLoading ? "..." : adminStats.transactions.toLocaleString()}
+          value={isLoading ? "..." : Number(adminStats.transactions || 0).toLocaleString()}
           icon={CreditCard}
           color="purple"
         />
@@ -89,18 +94,18 @@ export default function AdminDashboard() {
       <div className="grid lg:grid-cols-3 gap-6">
 
         <FraudTrendChart
-          categories={adminCharts.line.categories}
-          series={adminCharts.line.series}
+          categories={safeAdminCharts.line.categories}
+          series={safeAdminCharts.line.series}
         />
 
         <RiskPieChart
-          labels={adminCharts.pie.labels}
-          series={adminCharts.pie.series}
+          labels={safeAdminCharts.pie.labels}
+          series={safeAdminCharts.pie.series}
         />
 
         <TransactionTrendChart
-          categories={adminCharts.bar.categories}
-          series={adminCharts.bar.series}
+          categories={safeAdminCharts.bar.categories}
+          series={safeAdminCharts.bar.series}
         />
 
       </div>
