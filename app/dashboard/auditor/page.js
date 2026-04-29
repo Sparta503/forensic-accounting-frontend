@@ -12,6 +12,8 @@ import {
   CheckCircle,
   ClipboardList,
   Shield,
+  TrendingUp,
+  Clock,
 } from "lucide-react";
 
 // ✅ CHARTS
@@ -31,6 +33,7 @@ function AuditorDashboardContent() {
   const stats = useDashboardStore((s) => s.stats);
   const chartData = useDashboardStore((s) => s.chartData);
   const tableData = useDashboardStore((s) => s.tableData);
+  const flaggedTransactions = useDashboardStore((s) => s.flaggedTransactions);
   const fetchDashboardData = useDashboardStore((s) => s.fetchDashboardData);
   const isLoading = useDashboardStore((s) => s.isLoading);
 
@@ -42,6 +45,50 @@ function AuditorDashboardContent() {
   const auditorStats = stats.auditor;
   const auditorCharts = chartData.auditor;
   const auditorTable = tableData.auditor;
+
+  const hasChartData = (() => {
+    try {
+      const pieSeries = auditorCharts?.pie?.series || [];
+      const pieSum = pieSeries.reduce((s, v) => s + (typeof v === "number" ? v : 0), 0);
+      if (pieSum > 0) return true;
+      const lineSeries = auditorCharts?.line?.series || [];
+      if (lineSeries.some((s) => Array.isArray(s.data) && s.data.some((n) => typeof n === "number" && n > 0))) return true;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  const highRiskFlagged = flaggedTransactions.filter(t => t.risk === "High");
+  const mediumRiskFlagged = flaggedTransactions.filter(t => t.risk === "Medium");
+  const pendingReview = flaggedTransactions.filter(t => t.status === "Flagged");
+
+  const summaryCards = [
+    {
+      title: "Total Flagged",
+      value: isLoading ? "..." : flaggedTransactions.length.toString(),
+      icon: AlertTriangle,
+      color: "red",
+    },
+    {
+      title: "High Risk",
+      value: isLoading ? "..." : highRiskFlagged.length.toString(),
+      icon: TrendingUp,
+      color: "red",
+    },
+    {
+      title: "Medium Risk",
+      value: isLoading ? "..." : mediumRiskFlagged.length.toString(),
+      icon: Clock,
+      color: "yellow",
+    },
+    {
+      title: "Pending Review",
+      value: isLoading ? "..." : pendingReview.length.toString(),
+      icon: CheckCircle,
+      color: "blue",
+    },
+  ];
 
   const columns = [
     { key: "Date", label: "Date" },
@@ -64,35 +111,25 @@ function AuditorDashboardContent() {
       </h1>
 
       {/* CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ml-40">
-
-        <Card
-          title="Flagged Transactions"
-          value={isLoading ? "..." : auditorStats.flaggedTransactions.toString()}
-          icon={AlertTriangle}
-          color="red"
-        />
-
-        <Card
-          title="High Risk Cases"
-          value={isLoading ? "..." : auditorStats.highRiskCases.toString()}
-          icon={ShieldCheck}
-          color="yellow"
-        />
-
-        <Card
-          title="Resolved Cases"
-          value={isLoading ? "..." : auditorStats.resolvedCases.toString()}
-          icon={CheckCircle}
-          color="green"
-        />
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 ml-40">
+        {summaryCards.map((card, idx) => (
+          <Card
+            key={idx}
+            title={card.title}
+            value={card.value}
+            icon={card.icon}
+            color={card.color}
+          />
+        ))}
       </div>
 
       {/* CHARTS */}
       <h2 className="text-xl font-semibold text-gray-900 tracking-wide flex items-center gap-2 border-l-4 border-blue-500 pl-3">
         <ShieldCheck size={20} className="text-blue-600" />
         Graphical Summary
+        <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${hasChartData ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+          {hasChartData ? 'Live Data' : 'Mock Data'}
+        </span>
       </h2>
 
       <div className="grid lg:grid-cols-3 gap-6">
