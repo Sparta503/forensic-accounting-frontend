@@ -3,16 +3,27 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { apiRequest } from "../../lib/apiClient";
 
 export default function LogoutModal({ isOpen, onClose }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setLoading(true);
+
+    try {
+      await apiRequest("/auth/logout", { method: "POST" });
+    } catch (e) {
+      // Always proceed with local logout even if backend logout fails
+      if (typeof console !== "undefined") {
+        console.warn("[LogoutModal] backend logout failed", e);
+      }
+    }
 
     setTimeout(() => {
       localStorage.removeItem("token");
+      localStorage.removeItem("app_role");
       router.push("/auth/login");
     }, 1200); // simulate logout delay (feels real UX)
   };
