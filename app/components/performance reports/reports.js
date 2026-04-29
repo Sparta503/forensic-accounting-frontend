@@ -8,23 +8,82 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { useEffect, useMemo } from "react";
 import { useDashboardStore } from "../../store/dashboardStore";
 
 export default function PerformanceReport() {
-  // ✅ GET AUDIT REPORTS FROM DASHBOARD STORE
-  const { auditReports, performanceReports } = useDashboardStore();
+  const auditReports = useDashboardStore((s) => s.auditReports);
+  const performanceReports = useDashboardStore((s) => s.performanceReports);
+  const managementCharts = useDashboardStore((s) => s.chartData.management);
+  const backendData = useDashboardStore((s) => s.backendData);
+  const fetchDashboardData = useDashboardStore((s) => s.fetchDashboardData);
 
-  // � Convert reports → chart data
-  const allReports = [...auditReports, ...performanceReports];
-  const chartData = allReports.map((r, index) => {
-    const riskMatch = r.riskLevel?.match(/\d+/) || r.riskScore?.match(/\d+/);
-    const riskValue = riskMatch ? Number(riskMatch[0]) : 0;
+  useEffect(() => {
+    fetchDashboardData("management");
+  }, []);
+
+  const { allReports, chartData } = useMemo(() => {
+    const merged = [...(auditReports || []), ...(performanceReports || [])];
+    if (merged.length) {
+      const points = merged.map((r, index) => {
+        const riskMatch = r?.riskLevel?.match(/\d+/) || r?.riskScore?.match(/\d+/);
+        const riskValue = riskMatch ? Number(riskMatch[0]) : 0;
+        return {
+          name: `Report ${index + 1}`,
+          risk: riskValue || 50,
+        };
+      });
+      return { allReports: merged, chartData: points };
+    }
+
+    const categories = managementCharts?.bar?.categories || [];
+    const series = managementCharts?.bar?.series?.[0]?.data || [];
+    const points = categories.map((name, i) => ({
+      name,
+      risk: typeof series[i] === "number" ? series[i] : 0,
+    }));
+    return { allReports: [], chartData: points };
+  }, [auditReports, performanceReports, managementCharts]);
+
+  const { totalReportsCount, highRiskReportsCount } = useMemo(() => {
+    const tx = Array.isArray(backendData?.transactions) ? backendData.transactions : [];
+    const flagged = Array.isArray(backendData?.flagged) ? backendData.flagged : [];
+
+    const totalFromBackend = tx.length > 0 ? tx.length : null;
+
+    const highRiskFromFlagged = flagged.length > 0 ? flagged.length : null;
+    const highRiskFromTransactions = tx.length
+      ? tx.filter((t) => {
+          const score =
+            t?.risk_score ??
+            t?.riskScore ??
+            t?.risk ??
+            t?.risk_level ??
+            t?.riskLevel;
+
+          const numeric = typeof score === "number" ? score : Number(String(score || "").match(/\d+/)?.[0] || 0);
+
+          return (
+            t?.is_flagged === true ||
+            t?.is_fraud === true ||
+            t?.flagged === true ||
+            t?.fraud === true ||
+            numeric >= 70
+          );
+        }).length
+      : null;
+
+    const totalFallback = allReports.length || chartData.length;
+    const highRiskFallback = chartData.filter((r) => r.risk >= 70).length;
 
     return {
-      name: `Report ${index + 1}`,
-      risk: riskValue || 50, // default if no numeric value
+      totalReportsCount: totalFromBackend ?? totalFallback,
+      highRiskReportsCount:
+        highRiskFromFlagged ??
+        highRiskFromTransactions ??
+        highRiskFallback,
     };
-  });
+  }, [backendData, allReports.length, chartData]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 text-gray-900">
@@ -41,7 +100,7 @@ export default function PerformanceReport() {
           Risk Score Trends (From Audit Reports)
         </h2>
 
-        {allReports.length === 0 ? (
+        {chartData.length === 0 ? (
           <p className="text-gray-500 text-sm">
             No reports available yet. Generate audit reports first.
           </p>
@@ -66,16 +125,16 @@ export default function PerformanceReport() {
 
         <div className="bg-white p-4 border rounded-lg">
           <p className="text-sm text-gray-500">Total Reports</p>
-          <p className="text-xl font-bold">{allReports.length}</p>
+          <p className="text-xl font-bold">{totalReportsCount}</p>
         </div>
 
         <div className="bg-white p-4 border rounded-lg">
           <p className="text-sm text-gray-500">Avg Risk Score</p>
           <p className="text-xl font-bold">
-            {allReports.length
+            {chartData.length
               ? Math.round(
                   chartData.reduce((a, b) => a + b.risk, 0) /
-                    allReports.length
+                    chartData.length
                 )
               : 0}
           </p>
@@ -85,7 +144,7 @@ export default function PerformanceReport() {
           <p className="text-sm text-gray-500">High Risk Reports</p>
           <p className="text-xl font-bold text-red-500">
             {
-              chartData.filter((r) => r.risk >= 70).length
+              highRiskReportsCount
             }
           </p>
         </div>
