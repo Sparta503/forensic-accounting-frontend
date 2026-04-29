@@ -38,19 +38,14 @@ export default function Sidebar() {
   const menu = {
     admin: [
       { name: "Dashboard", path: "/dashboard/admin", icon: LayoutDashboard },
-      { name: "Fraud Summary", path: "/dashboard/admin/reports/fraud-summary", icon: FileText },
-      { name: "Risk Analysis", path: "/dashboard/admin/reports/risk-analysis", icon: FileText },
-      { name: "Financial Analysis", path: "/dashboard/admin/analysis/financial", icon: Sigma },
-      { name: "Ratios", path: "/dashboard/admin/analysis/ratios", icon: Sigma },
-      { name: "Trends", path: "/dashboard/admin/analysis/trends", icon: Sigma },
+      { name: "Fraud Summary", path: "/dashboard/admin/Reports/fraud-summary", icon: FileText },
+      { name: "Risk Analysis", path: "/dashboard/admin/Reports/risk-analysis", icon: FileText },
     ],
     auditor: [
       { name: "Dashboard", path: "/dashboard/auditor", icon: ClipboardList },
       { name: "Transactions", path: "/dashboard/auditor/transactions", icon: CreditCard },
-      { name: "Import CSV", path: "/dashboard/auditor/transactions/import-csv", icon: Upload },
       { name: "Import CSV Fast", path: "/dashboard/auditor/transactions/import-csv-fast", icon: Upload },
       { name: "Flagged Transactions", path: "/dashboard/auditor/flagged", icon: AlertTriangle },
-      { name: "Check Fraud", path: "/dashboard/auditor/fraud-check", icon: Search },
       { name: "Fraud Logs", path: "/dashboard/auditor/fraud-logs", icon: FileText },
     ],
     management: [
@@ -58,9 +53,6 @@ export default function Sidebar() {
       { name: "Department Tasks", path: "/dashboard/management/departmenttask", icon: ListTodo },
       { name: "Staff Overview", path: "/dashboard/management/staffOview", icon: Users },
       { name: "Performance Reports", path: "/dashboard/management/Reports", icon: FileText },
-      { name: "Financial Ratios", path: "/dashboard/management/financial/ratios", icon: Sigma },
-      { name: "Financial Trends", path: "/dashboard/management/financial/trends", icon: Sigma },
-      { name: "Validate Statement", path: "/dashboard/management/financial/validate", icon: Sigma },
     ],
   };
 
