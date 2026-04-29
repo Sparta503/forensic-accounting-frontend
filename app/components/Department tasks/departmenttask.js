@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Table from "../../components/ui/Table";
 import { Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { useDashboardStore } from "../../store/dashboardStore";
+import { apiRequest } from "../../lib/apiClient";
 
 export default function DepartmentTasksPage() {
   const columns = [
@@ -13,38 +14,187 @@ export default function DepartmentTasksPage() {
   ];
 
   // GET TASKS AND ACTIONS FROM DASHBOARD STORE
-  const { departmentTasks, addDepartmentTask, updateTaskStatus, deleteTask } = useDashboardStore();
+  const departmentTasks = useDashboardStore((s) => s.departmentTasks);
+  const addDepartmentTask = useDashboardStore((s) => s.addDepartmentTask);
+  const updateTaskStatus = useDashboardStore((s) => s.updateTaskStatus);
+  const deleteTask = useDashboardStore((s) => s.deleteTask);
+
+  const [backendTasks, setBackendTasks] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const [form, setForm] = useState({
     department: "",
     task: "",
   });
 
+  const endpoints = useMemo(
+    () => ({
+      list: [
+        "/department-tasks/",
+        "/department-tasks",
+        "/tasks/",
+        "/tasks",
+        "/management/tasks/",
+        "/management/tasks",
+      ],
+      create: [
+        "/department-tasks/",
+        "/department-tasks",
+        "/tasks/",
+        "/tasks",
+        "/management/tasks/",
+        "/management/tasks",
+      ],
+      updateById: (id) => [
+        `/department-tasks/${id}`,
+        `/department-tasks/${id}/`,
+        `/tasks/${id}`,
+        `/tasks/${id}/`,
+        `/management/tasks/${id}`,
+        `/management/tasks/${id}/`,
+      ],
+      deleteById: (id) => [
+        `/department-tasks/${id}`,
+        `/department-tasks/${id}/`,
+        `/tasks/${id}`,
+        `/tasks/${id}/`,
+        `/management/tasks/${id}`,
+        `/management/tasks/${id}/`,
+      ],
+    }),
+    []
+  );
+
+  const safeArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") {
+      if (Array.isArray(value.items)) return value.items;
+      if (Array.isArray(value.tasks)) return value.tasks;
+      if (Array.isArray(value.data)) return value.data;
+      if (Array.isArray(value.results)) return value.results;
+    }
+    return null;
+  };
+
+  const tryFirst = async (paths, makeRequest) => {
+    let last = null;
+    for (const p of paths) {
+      try {
+        return await makeRequest(p);
+      } catch (e) {
+        if (e?.status && e.status !== 404 && e.status !== 405) {
+          throw e;
+        }
+        last = e;
+      }
+    }
+    if (last) throw last;
+    return null;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await tryFirst(endpoints.list, (p) => apiRequest(p));
+        const arr = safeArray(res);
+        if (!cancelled) {
+          setBackendTasks(Array.isArray(arr) ? arr : []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setBackendTasks(null);
+          setError(e?.message || "Failed to load department tasks");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoints]);
+
+  const mergedTasks = useMemo(() => {
+    const src = Array.isArray(backendTasks) && backendTasks.length ? backendTasks : departmentTasks;
+    return Array.isArray(src) ? src : [];
+  }, [backendTasks, departmentTasks]);
+
   // Add task
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!form.department || !form.task) return;
 
-    addDepartmentTask({
+    const payload = {
       department: form.department,
       task: form.task,
-    });
+      status: "Pending",
+    };
+
+    try {
+      const created = await tryFirst(endpoints.create, (p) => apiRequest(p, { method: "POST", body: payload }));
+      const createdId = created?._id || created?.id;
+      const nextRow = {
+        id: createdId || Date.now(),
+        department: created?.department ?? payload.department,
+        task: created?.task ?? payload.task,
+        status: created?.status ?? payload.status,
+      };
+
+      setBackendTasks((prev) => {
+        if (!Array.isArray(prev)) return [nextRow];
+        return [nextRow, ...prev];
+      });
+    } catch (e) {
+      // Fallback to local store if backend endpoints are missing
+      addDepartmentTask({ department: payload.department, task: payload.task });
+      setError(e?.message || "Could not create task in backend; stored locally");
+    }
+
     setForm({ department: "", task: "" });
   };
 
   // Cycle status
-  const handleUpdateStatus = (id, currentStatus) => {
+  const handleUpdateStatus = async (id, currentStatus) => {
     const newStatus =
       currentStatus === "Pending"
         ? "In Progress"
         : currentStatus === "In Progress"
         ? "Done"
         : "Pending";
-    updateTaskStatus(id, newStatus);
+
+    try {
+      await tryFirst(endpoints.updateById(id), (p) => apiRequest(p, { method: "PUT", body: { status: newStatus } }));
+      setBackendTasks((prev) => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.map((t) => {
+          const tid = t?._id || t?.id;
+          return String(tid) === String(id) ? { ...t, status: newStatus } : t;
+        });
+      });
+    } catch (e) {
+      updateTaskStatus(id, newStatus);
+      setError(e?.message || "Could not update task in backend; updated locally");
+    }
   };
 
   // Delete task
-  const handleDeleteTask = (id) => {
-    deleteTask(id);
+  const handleDeleteTask = async (id) => {
+    try {
+      await tryFirst(endpoints.deleteById(id), (p) => apiRequest(p, { method: "DELETE" }));
+      setBackendTasks((prev) => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.filter((t) => String(t?._id || t?.id) !== String(id));
+      });
+    } catch (e) {
+      deleteTask(id);
+      setError(e?.message || "Could not delete task in backend; deleted locally");
+    }
   };
 
   return (
@@ -97,11 +247,18 @@ export default function DepartmentTasksPage() {
           <span className="text-sm text-gray-400">Live updates enabled</span>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* UI TABLE USED HERE */}
         <Table
           columns={columns}
-          data={departmentTasks.map((t) => ({
+          data={(loading ? [] : mergedTasks).map((t) => ({
             ...t,
+            id: t?.id || t?._id || t?.task_id || t?.taskId,
             status: (
               <span
                 className={`px-2 py-1 rounded-full text-xs font-medium
@@ -122,9 +279,9 @@ export default function DepartmentTasksPage() {
         {/* Actions (separate row controls) */}
         <div className="mt-4 flex flex-wrap gap-3 text-sm">
 
-          {departmentTasks.map((task) => (
+          {mergedTasks.map((task) => (
             <div
-              key={task.id}
+              key={task.id || task._id || task.task_id || task.taskId}
               className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg"
             >
               <span className="text-xs text-gray-600">
@@ -132,7 +289,7 @@ export default function DepartmentTasksPage() {
               </span>
 
               <button
-                onClick={() => handleUpdateStatus(task.id, task.status)}
+                onClick={() => handleUpdateStatus(task.id || task._id || task.task_id || task.taskId, task.status)}
                 className="text-blue-600 hover:text-blue-800"
                 title="Change status"
               >
@@ -140,7 +297,7 @@ export default function DepartmentTasksPage() {
               </button>
 
               <button
-                onClick={() => handleDeleteTask(task.id)}
+                onClick={() => handleDeleteTask(task.id || task._id || task.task_id || task.taskId)}
                 className="text-red-500 hover:text-red-700"
                 title="Delete"
               >
