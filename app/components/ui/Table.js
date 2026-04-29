@@ -1,19 +1,44 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, isValidElement } from "react";
 
 export default function Table({ columns, data, searchQuery = "" }) {
   const [visibleRows, setVisibleRows] = useState(5);
+
+  const safeStringify = (value) => {
+    if (value === null || value === undefined) return "";
+    try {
+      const seen = new WeakSet();
+      return JSON.stringify(value, (key, val) => {
+        if (typeof val === "object" && val !== null) {
+          if (seen.has(val)) return "[Circular]";
+          seen.add(val);
+
+          // Avoid trying to serialize React internals (elements, contexts, etc.)
+          if (val?.$$typeof) return "[ReactElement]";
+          if (val?._context || val?.Provider || val?.Consumer) return "[ReactObject]";
+        }
+        if (typeof val === "function") return "[Function]";
+        return val;
+      });
+    } catch (e) {
+      return "[Object]";
+    }
+  };
 
   // Filter data based on search query
   const filteredData = useMemo(() => {
     if (!searchQuery) return data;
     const lowerQuery = searchQuery.toLowerCase();
-    return data.filter((row) =>
-      columns.some((col) =>
-        String(row[col.key]).toLowerCase().includes(lowerQuery)
-      )
-    );
+    return data.filter((row) => {
+      try {
+        // Search the whole row (stringified) so nested or unexpected keys are included
+        return safeStringify(row).toLowerCase().includes(lowerQuery);
+      } catch (e) {
+        // Fallback to original per-column search if stringify fails
+        return columns.some((col) => String(row[col.key]).toLowerCase().includes(lowerQuery));
+      }
+    });
   }, [data, columns, searchQuery]);
 
   const handleSeeMore = () => {
@@ -76,7 +101,15 @@ export default function Table({ columns, data, searchQuery = "" }) {
                         key={col.key}
                         className="px-4 py-3 first:rounded-l-xl last:rounded-r-xl border-t border-b border-black/20"
                       >
-                        {typeof col.render === "function" ? col.render(row) : (row[col.key] ?? "-")}
+                        {(() => {
+                          if (typeof col.render === "function") return col.render(row);
+                          const val = row[col.key];
+                          if (val === null || val === undefined || val === "") return "-";
+                          if (isValidElement(val)) return val;
+                          if (Array.isArray(val)) return val.join(", ");
+                          if (typeof val === "object") return safeStringify(val) || "[Object]";
+                          return String(val);
+                        })()}
                       </td>
                     ))}
                   </tr>
