@@ -14,7 +14,35 @@ export function getUserFromToken() {
     const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, "=");
 
     const json = atob(padded);
-    return JSON.parse(json);
+    const payloadObj = JSON.parse(json);
+
+    const rawRole =
+      payloadObj?.role ??
+      payloadObj?.Role ??
+      payloadObj?.user_role ??
+      payloadObj?.userRole ??
+      payloadObj?.user_type ??
+      payloadObj?.userType ??
+      null;
+
+    const normalizedRole = typeof rawRole === "string" ? rawRole.trim().toLowerCase() : null;
+    const role =
+      normalizedRole === "manager" || normalizedRole === "management"
+        ? "management"
+        : normalizedRole === "auditor"
+          ? "auditor"
+          : normalizedRole === "admin" || normalizedRole === "administrator"
+            ? "admin"
+            : normalizedRole;
+
+    const override = localStorage.getItem("app_role");
+    const overrideRole = typeof override === "string" ? override.trim().toLowerCase() : "";
+    const finalRole = overrideRole || role;
+
+    return {
+      ...payloadObj,
+      ...(finalRole ? { role: finalRole } : {}),
+    };
   } catch {
     return null;
   }
