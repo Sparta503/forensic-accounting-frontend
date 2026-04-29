@@ -7,6 +7,12 @@ const isBrowser = typeof window !== 'undefined';
 export const useDashboardStore = create((set, get) => ({
   // 🔹 LOADING STATE
   isLoading: false,
+
+  // 🔹 RAW BACKEND DATA (shared across roles)
+  backendData: {
+    transactions: [],
+    flagged: [],
+  },
   
   // 🔹 STATS FOR CARDS (by role)
   stats: {
@@ -194,10 +200,30 @@ export const useDashboardStore = create((set, get) => ({
     set({ isLoading: true });
 
     try {
+      const tryGetFirst = async (paths) => {
+        let last = null;
+        for (const p of paths) {
+          try {
+            return await apiRequest(p);
+          } catch (e) {
+            if (e?.status && e.status !== 404 && e.status !== 405) {
+              throw e;
+            }
+            last = e;
+          }
+        }
+        if (last) throw last;
+        return null;
+      };
+
       const safeArray = (value) => {
         if (Array.isArray(value)) return value;
         if (value && typeof value === "object") {
           if (Array.isArray(value.items)) return value.items;
+          if (Array.isArray(value.users)) return value.users;
+          if (Array.isArray(value.logins)) return value.logins;
+          if (Array.isArray(value.activities)) return value.activities;
+          if (Array.isArray(value.records)) return value.records;
           if (Array.isArray(value.data)) return value.data;
           if (Array.isArray(value.results)) return value.results;
         }
@@ -246,11 +272,54 @@ export const useDashboardStore = create((set, get) => ({
         };
       };
 
-      const [transactionsRes, flaggedRes, fraudSummaryRes, riskAnalysisRes] = await Promise.all([
-        apiRequest("/transactions/").catch(() => null),
-        role === "auditor" ? apiRequest("/fraud/flagged").catch(() => null) : Promise.resolve(null),
-        role === "admin" ? apiRequest("/reports/fraud-summary").catch(() => null) : Promise.resolve(null),
-        role === "admin" ? apiRequest("/reports/risk-analysis").catch(() => null) : Promise.resolve(null),
+      const [
+        transactionsRes,
+        flaggedRes,
+        fraudSummaryRes,
+        riskAnalysisRes,
+        usersRes,
+        recentLoginsRes,
+      ] = await Promise.all([
+        tryGetFirst(["/transactions/", "/transactions"]).catch(() => null),
+        tryGetFirst(["/fraud/flagged", "/fraud/flagged/"]).catch(() => null),
+        role === "admin"
+          ? tryGetFirst(["/reports/fraud-summary", "/reports/fraud-summary/"]).catch(() => null)
+          : Promise.resolve(null),
+        role === "admin"
+          ? tryGetFirst(["/reports/risk-analysis", "/reports/risk-analysis/"]).catch(() => null)
+          : Promise.resolve(null),
+        role === "admin"
+          ? tryGetFirst([
+              "/users/",
+              "/users",
+              "/auth/users/",
+              "/auth/users",
+              "/admin/users/",
+              "/admin/users",
+              "/accounts/users/",
+              "/accounts/users",
+            ]).catch(() => null)
+          : Promise.resolve(null),
+        role === "admin"
+          ? tryGetFirst([
+              "/auth/recent-logins",
+              "/auth/recent-logins/",
+              "/auth/login-history",
+              "/auth/login-history/",
+              "/login-history",
+              "/login-history/",
+              "/recent-logins",
+              "/recent-logins/",
+              "/audit/recent-logins",
+              "/audit/recent-logins/",
+              "/audit/login-history",
+              "/audit/login-history/",
+              "/logs/recent-logins",
+              "/logs/recent-logins/",
+              "/logs/login-history",
+              "/logs/login-history/",
+            ]).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       const transactions = safeArray(transactionsRes) || [];
@@ -271,15 +340,162 @@ export const useDashboardStore = create((set, get) => ({
         return typeof score === "number" && score >= 70;
       }).length;
 
-      if (transactionsCount === 0 && typeof console !== "undefined") {
-        console.warn("[dashboardStore] /transactions/ returned 0 items", transactionsRes);
+      // DERIVE CHART DATA FOR AUDITOR FROM API RESPONSES (fallback to existing mocks)
+      const deriveAuditorCharts = (flaggedArr = [], transactionsArr = []) => {
+        if (!Array.isArray(flaggedArr)) flaggedArr = [];
+        if (!Array.isArray(transactionsArr)) transactionsArr = [];
+
+        // Helper: extract date (YYYY-MM-DD) from many possible timestamp fields
+        const getDateKey = (t) => {
+          const ts = t?.timestamp || t?.created_at || t?.createdAt || t?.date || t?.Date || "";
+          try {
+            if (!ts) return "Unknown";
+            const d = new Date(ts);
+            if (!isNaN(d)) return d.toISOString().slice(0, 10);
+            // fallback: if string like "2026-04-12 14:32"
+            return String(ts).split(" ")[0];
+          } catch (e) {
+            return String(ts).split(" ")[0] || "Unknown";
+          }
+        };
+
+        // Line chart: flagged vs reviewed by day (use flaggedArr)
+        const byDay = {};
+        flaggedArr.forEach((f) => {
+          const k = getDateKey(f);
+          byDay[k] = byDay[k] || { flagged: 0, reviewed: 0 };
+          byDay[k].flagged += 1;
+          if (f.status && String(f.status).toLowerCase() !== "flagged") byDay[k].reviewed += 1;
+        });
+
+        // Pick last 7 keys sorted ascending (if Unknown present, keep at end)
+        const dayKeys = Object.keys(byDay).filter(k => k !== "Unknown").sort();
+        const windowKeys = dayKeys.slice(Math.max(0, dayKeys.length - 7));
+        if (windowKeys.length === 0 && flaggedArr.length > 0) {
+          // fallback: use all unique keys (including Unknown)
+          windowKeys.push(...Object.keys(byDay));
+        }
+
+        const lineCategories = windowKeys.length ? windowKeys : ["No Data"];
+        const lineFlagged = lineCategories.map((k) => byDay[k]?.flagged || 0);
+        const lineReviewed = lineCategories.map((k) => byDay[k]?.reviewed || 0);
+
+        // Pie chart: risk distribution
+        const risks = { High: 0, Medium: 0, Low: 0, Other: 0 };
+        flaggedArr.forEach((f) => {
+          const r = f?.risk || f?.risk_level || "Other";
+          if (r === "High" || String(r).toLowerCase() === "high") risks.High += 1;
+          else if (r === "Medium" || String(r).toLowerCase() === "medium") risks.Medium += 1;
+          else if (r === "Low" || String(r).toLowerCase() === "low") risks.Low += 1;
+          else risks.Other += 1;
+        });
+
+        const pieLabels = ["High", "Medium", "Low", "Other"].filter((l) => risks[l] > 0);
+        const pieSeries = pieLabels.map((l) => risks[l]);
+
+        // Bar chart: monthly transaction trend (aggregate by month from transactionsArr)
+        const monthCounts = {};
+        const monthLabelsSet = new Set();
+        const toMonthKey = (ts) => {
+          try {
+            if (!ts) return null;
+            const d = new Date(ts);
+            if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            // fallback parse YYYY-MM-DD
+            const s = String(ts).split(" ")[0];
+            const parts = s.split("-");
+            if (parts.length >= 2) return `${parts[0]}-${parts[1].padStart(2, "0")}`;
+            return null;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        transactionsArr.forEach((t) => {
+          const k = toMonthKey(t?.timestamp || t?.created_at || t?.createdAt || t?.date || t?.Date || t?.transaction_date || t?.transactionDate || "");
+          if (!k) return;
+          monthCounts[k] = (monthCounts[k] || 0) + 1;
+          monthLabelsSet.add(k);
+        });
+
+        // Build last 12 months list (sorted)
+        const monthKeys = Array.from(monthLabelsSet).sort();
+        // If no monthKeys from transactions, fallback to flagged dates
+        if (monthKeys.length === 0) {
+          flaggedArr.forEach((f) => {
+            const k = toMonthKey(f?.timestamp || f?.date || f?.Date || "");
+            if (!k) return;
+            monthCounts[k] = (monthCounts[k] || 0) + 1;
+            monthLabelsSet.add(k);
+          });
+        }
+
+        const finalMonthKeys = Array.from(monthLabelsSet).sort();
+        // Format labels as 'Mon YYYY'
+        const monthLabels = finalMonthKeys.map((k) => {
+          const [y, m] = k.split("-");
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          return `${months[Number(m) - 1] || m} ${y}`;
+        });
+
+        const monthData = finalMonthKeys.map((k) => monthCounts[k] || 0);
+
+        return {
+          line: {
+            categories: lineCategories,
+            series: [
+              { name: "Flagged", data: lineFlagged },
+              { name: "Reviewed", data: lineReviewed },
+            ],
+          },
+          pie: {
+            labels: pieLabels.length ? pieLabels : ["No Data"],
+            series: pieSeries.length ? pieSeries : [0],
+          },
+          bar: {
+            categories: monthLabels.length ? monthLabels : ["No Data"],
+            series: [{ name: "Transactions", data: monthData.length ? monthData : [0] }],
+          },
+        };
+      };
+
+      // If flagged response is empty, derive pseudo-flagged records from transactions
+      let auditorDerivedCharts;
+      if ((!Array.isArray(flagged) || flagged.length === 0) && Array.isArray(transactions) && transactions.length > 0) {
+        const pseudo = transactions
+          .filter((t) => t?.is_flagged === true || t?.is_fraud === true || typeof t?.risk_score === 'number')
+          .map((t) => ({
+            user: t.user || t.user_id || t.username || t.account || "Unknown",
+            risk: t.risk || (typeof t.risk_score === 'number' ? (t.risk_score >= 70 ? 'High' : t.risk_score >= 40 ? 'Medium' : 'Low') : 'Other'),
+            status: t.is_flagged || t.is_fraud ? 'Flagged' : (t.status || 'Reviewed'),
+            timestamp: t.transaction_date || t.transactionDate || t.created_at || t.createdAt || t.date || t.Date || "",
+          }));
+
+        auditorDerivedCharts = deriveAuditorCharts(pseudo.length ? pseudo : flagged, transactions);
+      } else {
+        auditorDerivedCharts = deriveAuditorCharts(flagged, transactions);
       }
+
+      if (transactionsCount === 0 && typeof console !== "undefined") {
+        console.warn("[dashboardStore] /transactions/ returned 0 items", transactionsRes, "for role", role);
+      }
+
+      // Determine if we have real chart data; if not, use generated mock charts
+      const hasRealChartData = (Array.isArray(flagged) && flagged.length > 0) || (
+        Array.isArray(transactions) && transactions.length > 0 && transactions.some(t => t?.is_flagged || t?.is_fraud || typeof t?.risk_score === 'number')
+      );
+
+      const fallbackCharts = hasRealChartData ? null : generateMockData(role).chartData;
 
       set((state) => {
         const next = {
           stats: { ...state.stats },
           chartData: { ...state.chartData },
           tableData: { ...state.tableData },
+          backendData: {
+            transactions,
+            flagged,
+          },
           isLoading: false,
         };
 
@@ -298,9 +514,62 @@ export const useDashboardStore = create((set, get) => ({
             highRiskCases: highRiskFromTransactions || state.stats.auditor.highRiskCases,
             resolvedCases: state.stats.auditor.resolvedCases,
           };
+
+          // Assign derived chart data for auditor if real data exists, otherwise use mock fallback
+          try {
+            next.chartData.auditor = hasRealChartData ? (auditorDerivedCharts || state.chartData.auditor) : (fallbackCharts?.auditor || state.chartData.auditor);
+          } catch (e) {
+            next.chartData.auditor = state.chartData.auditor;
+          }
         }
 
         if (role === "admin") {
+          const usersArr = safeArray(usersRes) || [];
+          const usersCount = safeCount(usersRes) ?? (Array.isArray(usersArr) ? usersArr.length : 0);
+
+          const rawLoginsArr = safeArray(recentLoginsRes) || [];
+          const loginRows = Array.isArray(rawLoginsArr)
+            ? rawLoginsArr
+                .slice(0, 20)
+                .map((l) => {
+                  if (!l || typeof l !== "object") return null;
+
+                  const user =
+                    l.email ||
+                    l.user ||
+                    l.username ||
+                    l.user_email ||
+                    l.userEmail ||
+                    l.user_id ||
+                    "Unknown";
+
+                  const ts = l.time || l.timestamp || l.logged_in_at || l.loggedInAt || l.created_at || l.createdAt;
+                  const time = ts ? String(ts) : "";
+
+                  const ok =
+                    l.success ??
+                    l.ok ??
+                    l.status === "success" ??
+                    l.status === "Success" ??
+                    l.is_success;
+
+                  const status =
+                    typeof l.status === "string"
+                      ? l.status
+                      : ok === false
+                        ? "Failed"
+                        : "Success";
+
+                  return {
+                    user: String(user),
+                    action: "Login",
+                    time,
+                    status,
+                  };
+                })
+                .filter(Boolean)
+            : [];
+
           next.stats.admin = {
             ...state.stats.admin,
             transactions: transactionsCount || state.stats.admin.transactions,
@@ -317,17 +586,24 @@ export const useDashboardStore = create((set, get) => ({
                 fraudSummaryRes.totalAlerts
               )) ||
               state.stats.admin.fraudAlerts,
+            totalUsers: usersCount || state.stats.admin.totalUsers,
           };
+
+          if (loginRows.length) {
+            next.tableData.admin = loginRows;
+          }
 
           if (riskAnalysisRes && typeof riskAnalysisRes === "object") {
             next.stats.admin = {
               ...next.stats.admin,
-              totalUsers: riskAnalysisRes.total_users ?? riskAnalysisRes.totalUsers ?? next.stats.admin.totalUsers,
+              totalUsers:
+                usersCount ||
+                (riskAnalysisRes.total_users ?? riskAnalysisRes.totalUsers ?? next.stats.admin.totalUsers),
             };
           } else if (uniqueUsersFromTransactions > 0) {
             next.stats.admin = {
               ...next.stats.admin,
-              totalUsers: uniqueUsersFromTransactions,
+              totalUsers: usersCount || uniqueUsersFromTransactions,
             };
           }
         }
@@ -342,6 +618,15 @@ export const useDashboardStore = create((set, get) => ({
           };
         }
 
+        // Use auditor-derived charts for admin/management only when real data exists, otherwise use mock fallback
+        if (hasRealChartData && auditorDerivedCharts && typeof auditorDerivedCharts === "object") {
+          next.chartData.admin = auditorDerivedCharts;
+          next.chartData.management = auditorDerivedCharts;
+        } else if (fallbackCharts) {
+          next.chartData.admin = fallbackCharts.admin;
+          next.chartData.management = fallbackCharts.management;
+        }
+
         return next;
       });
     } catch (e) {
@@ -354,6 +639,10 @@ export const useDashboardStore = create((set, get) => ({
         stats: { ...state.stats, [role]: data.stats },
         chartData: { ...state.chartData, [role]: data.chartData },
         tableData: { ...state.tableData, [role]: data.tableData },
+        backendData: {
+          transactions: [],
+          flagged: [],
+        },
         isLoading: false,
       }));
     }
