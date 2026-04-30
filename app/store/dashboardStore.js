@@ -33,56 +33,11 @@ export const useDashboardStore = create((set, get) => ({
     },
   },
 
-  // 🔹 CHART DATA (by role) - with defaults for SSR
+  // 🔹 CHART DATA (by role) - null until real data is loaded
   chartData: {
-    admin: {
-      line: { 
-        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"], 
-        series: [{ name: "Transactions", data: [100, 200, 150, 300, 250, 400] }] 
-      },
-      pie: { 
-        labels: ["High Risk", "Medium", "Low"], 
-        series: [50, 30, 20] 
-      },
-      bar: { 
-        categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
-        series: [{ name: "Volume", data: [300, 500, 400, 600, 550, 700, 650] }] 
-      },
-    },
-    auditor: {
-      line: { 
-        categories: ["Mon", "Tue", "Wed", "Thu", "Fri"], 
-        series: [
-          { name: "Flagged", data: [10, 25, 18, 40, 35] },
-          { name: "Reviewed", data: [5, 15, 12, 20, 25] },
-        ] 
-      },
-      pie: { 
-        labels: ["Critical", "Moderate", "Safe"], 
-        series: [40, 35, 25] 
-      },
-      bar: { 
-        categories: ["Case1", "Case2", "Case3", "Case4", "Case5"], 
-        series: [{ name: "Investigations", data: [20, 35, 25, 40, 30] }] 
-      },
-    },
-    management: {
-      line: { 
-        categories: ["Q1", "Q2", "Q3", "Q4"], 
-        series: [
-          { name: "Revenue", data: [500, 700, 650, 900] },
-          { name: "Expenses", data: [300, 400, 350, 500] },
-        ] 
-      },
-      pie: { 
-        labels: ["Completed", "In Progress", "Pending"], 
-        series: [45, 35, 20] 
-      },
-      bar: { 
-        categories: ["Finance", "HR", "IT", "Sales", "Marketing"], 
-        series: [{ name: "Performance", data: [85, 92, 78, 95, 88] }] 
-      },
-    },
+    admin: null,
+    auditor: null,
+    management: null,
   },
 
   // 🔹 TABLE DATA (by role) - with defaults for SSR
@@ -571,12 +526,10 @@ export const useDashboardStore = create((set, get) => ({
         console.warn("[dashboardStore] /transactions/ returned 0 items", transactionsRes, "for role", role);
       }
 
-      // Determine if we have real chart data; if not, use generated mock charts
+      // Determine if we have real chart data
       const hasRealChartData = (Array.isArray(flagged) && flagged.length > 0) || (
         Array.isArray(transactions) && transactions.length > 0 && transactions.some(t => t?.is_flagged || t?.is_fraud || typeof t?.risk_score === 'number')
       );
-
-      const fallbackCharts = hasRealChartData ? null : generateMockData(role).chartData;
 
       set((state) => {
         const next = {
@@ -617,7 +570,7 @@ export const useDashboardStore = create((set, get) => ({
 
           // Assign derived chart data for auditor if real data exists, otherwise use mock fallback
           try {
-            next.chartData.auditor = hasRealChartData ? (auditorDerivedCharts || state.chartData.auditor) : (fallbackCharts?.auditor || state.chartData.auditor);
+            next.chartData.auditor = hasRealChartData ? (auditorDerivedCharts || state.chartData.auditor) : null;
           } catch (e) {
             next.chartData.auditor = state.chartData.auditor;
           }
@@ -706,26 +659,22 @@ export const useDashboardStore = create((set, get) => ({
         }
 
         if (role === "management") {
-          const fallback = generateMockData("management");
           const computedGrowth = computeRevenueGrowthPct(transactions);
           next.stats.management = {
             ...state.stats.management,
-            activeProjects: state.stats.management.activeProjects || fallback.stats.activeProjects,
-            teamMembers: state.stats.management.teamMembers || fallback.stats.teamMembers,
-            revenueGrowth:
-              typeof computedGrowth === "number"
-                ? computedGrowth
-                : (state.stats.management.revenueGrowth || fallback.stats.revenueGrowth),
+            activeProjects: state.stats.management.activeProjects || 0,
+            teamMembers: state.stats.management.teamMembers || 0,
+            revenueGrowth: typeof computedGrowth === "number" ? computedGrowth : (state.stats.management.revenueGrowth || 0),
           };
         }
 
-        // Use auditor-derived charts for admin/management only when real data exists, otherwise use mock fallback
+        // Use auditor-derived charts for admin/management only when real data exists
         if (hasRealChartData && auditorDerivedCharts && typeof auditorDerivedCharts === "object") {
           next.chartData.admin = auditorDerivedCharts;
           next.chartData.management = auditorDerivedCharts;
-        } else if (fallbackCharts) {
-          next.chartData.admin = fallbackCharts.admin;
-          next.chartData.management = fallbackCharts.management;
+        } else {
+          next.chartData.admin = null;
+          next.chartData.management = null;
         }
 
         return next;
@@ -734,12 +683,12 @@ export const useDashboardStore = create((set, get) => ({
       if (typeof console !== "undefined") {
         console.error("[dashboardStore] fetchDashboardData failed", { role, error: e });
       }
-      const data = generateMockData(role);
 
+      // On failure, clear backend data for role and leave charts as null (loading state)
       set((state) => ({
-        stats: { ...state.stats, [role]: data.stats },
-        chartData: { ...state.chartData, [role]: data.chartData },
-        tableData: { ...state.tableData, [role]: data.tableData },
+        stats: { ...state.stats, [role]: state.stats[role] },
+        chartData: { ...state.chartData, [role]: null },
+        tableData: { ...state.tableData, [role]: state.tableData[role] },
         backendData: {
           transactions: [],
           flagged: [],
@@ -930,148 +879,4 @@ export const useDashboardStore = create((set, get) => ({
   })),
 }));
 
-// 🔥 MOCK DATA GENERATOR (replace with real API calls)
-function generateMockData(role) {
-  const stats = {
-    admin: {
-      totalUsers: Math.floor(Math.random() * 5000) + 1000,
-      fraudAlerts: Math.floor(Math.random() * 100) + 10,
-      transactions: Math.floor(Math.random() * 20000) + 5000,
-    },
-    auditor: {
-      flaggedTransactions: Math.floor(Math.random() * 200) + 50,
-      highRiskCases: Math.floor(Math.random() * 50) + 5,
-      resolvedCases: Math.floor(Math.random() * 100) + 20,
-    },
-    management: {
-      activeProjects: Math.floor(Math.random() * 30) + 5,
-      teamMembers: Math.floor(Math.random() * 100) + 20,
-      revenueGrowth: Math.floor(Math.random() * 50) + 5,
-    },
-  };
-
-  const chartData = {
-    admin: {
-      line: {
-        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-        series: [
-          { name: "Transactions", data: [100, 200, 150, 300, 250, 400] },
-          { name: "Fraud", data: [20, 40, 30, 80, 60, 90] },
-        ],
-      },
-      pie: {
-        labels: ["High Risk", "Medium", "Low"],
-        series: [50, 30, 20],
-      },
-      bar: {
-        categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        series: [{ name: "Volume", data: [300, 500, 400, 600, 550, 700, 650] }],
-      },
-    },
-    auditor: {
-      line: {
-        categories: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-        series: [
-          { name: "Flagged", data: [10, 25, 18, 40, 35] },
-          { name: "Reviewed", data: [5, 15, 12, 20, 25] },
-        ],
-      },
-      pie: {
-        labels: ["Critical", "Moderate", "Safe"],
-        series: [40, 35, 25],
-      },
-      bar: {
-        categories: ["Case1", "Case2", "Case3", "Case4", "Case5"],
-        series: [{ name: "Investigations", data: [20, 35, 25, 40, 30] }],
-      },
-    },
-    management: {
-      line: {
-        categories: ["Q1", "Q2", "Q3", "Q4"],
-        series: [
-          { name: "Revenue", data: [500, 700, 650, 900] },
-          { name: "Expenses", data: [300, 400, 350, 500] },
-        ],
-      },
-      pie: {
-        labels: ["Completed", "In Progress", "Pending"],
-        series: [45, 35, 20],
-      },
-      bar: {
-        categories: ["Finance", "HR", "IT", "Sales", "Marketing"],
-        series: [{ name: "Performance", data: [85, 92, 78, 95, 88] }],
-      },
-    },
-  };
-
-  const tableData = {
-    admin: [
-      { user: "admin@system.com", action: "Login", time: "2 mins ago", status: "Success" },
-      { user: "auditor@audit.com", action: "Report Generated", time: "15 mins ago", status: "Completed" },
-      { user: "user@demo.com", action: "Transaction", time: "1 hour ago", status: "Pending" },
-      { user: "admin@system.com", action: "User Created", time: "3 hours ago", status: "Success" },
-      { user: "system", action: "Backup", time: "6 hours ago", status: "Success" },
-      { user: "auditor@audit.com", action: "Fraud Alert", time: "8 hours ago", status: "Reviewed" },
-      { user: "user@demo.com", action: "Password Change", time: "12 hours ago", status: "Success" },
-      { user: "admin@system.com", action: "Settings Updated", time: "1 day ago", status: "Success" },
-    ],
-    auditor: [
-      {
-        Date: "20/09/2018 12:04:08",
-        Mode: "Cash",
-        Category: "Transportation",
-        Subcategory: "Train",
-        Note: "2 Place 5 to Place 0",
-        Amount: 30,
-        "Income/Expense": "Expense",
-        Currency: "INR",
-      },
-      {
-        Date: "20/09/2018 12:03:15",
-        Mode: "Cash",
-        Category: "Food",
-        Subcategory: "snacks",
-        Note: "Idli medu Vada mix 2 plates",
-        Amount: 60,
-        "Income/Expense": "Expense",
-        Currency: "INR",
-      },
-      {
-        Date: "19/09/2018",
-        Mode: "Saving Bank account 1",
-        Category: "subscription",
-        Subcategory: "Netflix",
-        Note: "1 month subscription",
-        Amount: 199,
-        "Income/Expense": "Expense",
-        Currency: "INR",
-      },
-      {
-        Date: "11/9/2018",
-        Mode: "Saving Bank account 1",
-        Category: "Other",
-        Subcategory: "",
-        Note: "From Family",
-        Amount: 3500,
-        "Income/Expense": "Income",
-        Currency: "INR",
-      },
-    ],
-    management: [
-      { department: "Finance", task: "Q3 Budget Review", manager: "John Smith", status: "In Progress", date: "Today" },
-      { department: "HR", task: "Employee Onboarding", manager: "Sarah Lee", status: "Completed", date: "Yesterday" },
-      { department: "Operations", task: "Audit Compliance", manager: "Mike Chen", status: "Pending", date: "Tomorrow" },
-      { department: "IT", task: "System Migration", manager: "David Kim", status: "In Progress", date: "2 days" },
-      { department: "Marketing", task: "Campaign Analysis", manager: "Emma Wilson", status: "Review", date: "3 days" },
-      { department: "Sales", task: "Quarterly Report", manager: "Alex Brown", status: "Completed", date: "Last week" },
-      { department: "Legal", task: "Contract Review", manager: "Lisa Park", status: "Pending", date: "Next week" },
-      { department: "Finance", task: "Expense Audit", manager: "John Smith", status: "In Progress", date: "Today" },
-    ],
-  };
-
-  return {
-    stats: stats[role],
-    chartData: chartData[role],
-    tableData: tableData[role],
-  };
-}
+// generateMockData removed — charts are null until real data arrives
