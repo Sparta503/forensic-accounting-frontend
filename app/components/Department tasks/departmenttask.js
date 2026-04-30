@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Table from "../../components/ui/Table";
 import { Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { useDashboardStore } from "../../store/dashboardStore";
@@ -12,6 +12,22 @@ export default function DepartmentTasksPage() {
     { key: "task", label: "Task" },
     { key: "status", label: "Status" },
   ];
+
+  const toBackendStatus = (value) => {
+    const k = String(value || "").trim().toLowerCase();
+    if (k === "pending") return "pending";
+    if (k === "in progress" || k === "in_progress" || k === "inprogress") return "in_progress";
+    if (k === "done" || k === "completed" || k === "complete") return "completed";
+    return "pending";
+  };
+
+  const toDisplayStatus = (value) => {
+    const k = String(value || "").trim().toLowerCase();
+    if (k === "pending") return "Pending";
+    if (k === "in_progress" || k === "in progress") return "In Progress";
+    if (k === "completed" || k === "done") return "Completed";
+    return String(value || "Pending");
+  };
 
   // GET TASKS AND ACTIONS FROM DASHBOARD STORE
   const departmentTasks = useDashboardStore((s) => s.departmentTasks);
@@ -93,33 +109,43 @@ export default function DepartmentTasksPage() {
     return null;
   };
 
+  const isProbablyBackendId = (id) => {
+    if (id === null || id === undefined) return false;
+    const s = String(id);
+    // Mongo ObjectId is 24 hex chars; UUIDs contain dashes; both are valid server ids.
+    if (/^[0-9a-fA-F]{24}$/.test(s)) return true;
+    if (/^[0-9a-fA-F-]{32,36}$/.test(s)) return true;
+    // Purely numeric ids are often local placeholders in this app.
+    if (/^\d+$/.test(s)) return false;
+    // Fall back: if it's not purely numeric, treat as server id.
+    return true;
+  };
+
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await tryFirst(endpoints.list, (p) => apiRequest(p));
+      const arr = safeArray(res);
+      setBackendTasks(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+      setBackendTasks(null);
+      setError(e?.message || "Failed to load department tasks");
+    } finally {
+      setLoading(false);
+    }
+  }, [endpoints]);
+
   useEffect(() => {
     let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await tryFirst(endpoints.list, (p) => apiRequest(p));
-        const arr = safeArray(res);
-        if (!cancelled) {
-          setBackendTasks(Array.isArray(arr) ? arr : []);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setBackendTasks(null);
-          setError(e?.message || "Failed to load department tasks");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
+    (async () => {
+      await loadTasks();
+    })();
     return () => {
       cancelled = true;
+      void cancelled;
     };
-  }, [endpoints]);
+  }, [loadTasks]);
 
   const mergedTasks = useMemo(() => {
     const src = Array.isArray(backendTasks) && backendTasks.length ? backendTasks : departmentTasks;
@@ -133,23 +159,31 @@ export default function DepartmentTasksPage() {
     const payload = {
       department: form.department,
       task: form.task,
-      status: "Pending",
+      title: form.task,
+      description: form.task,
+      name: form.task,
+      status: "pending",
     };
 
     try {
       const created = await tryFirst(endpoints.create, (p) => apiRequest(p, { method: "POST", body: payload }));
       const createdId = created?._id || created?.id;
-      const nextRow = {
-        id: createdId || Date.now(),
-        department: created?.department ?? payload.department,
-        task: created?.task ?? payload.task,
-        status: created?.status ?? payload.status,
-      };
+      if (createdId) {
+        const nextRow = {
+          id: createdId,
+          department: created?.department ?? payload.department,
+          task: created?.task ?? created?.title ?? created?.description ?? created?.name ?? payload.task,
+          status: toBackendStatus(created?.status ?? payload.status),
+        };
 
-      setBackendTasks((prev) => {
-        if (!Array.isArray(prev)) return [nextRow];
-        return [nextRow, ...prev];
-      });
+        setBackendTasks((prev) => {
+          if (!Array.isArray(prev)) return [nextRow];
+          return [nextRow, ...prev];
+        });
+      } else {
+        // Backend created the task but didn't return an id; refetch list to get real ids.
+        await loadTasks();
+      }
     } catch (e) {
       // Fallback to local store if backend endpoints are missing
       addDepartmentTask({ department: payload.department, task: payload.task });
@@ -161,30 +195,51 @@ export default function DepartmentTasksPage() {
 
   // Cycle status
   const handleUpdateStatus = async (id, currentStatus) => {
+    const current = toBackendStatus(currentStatus);
     const newStatus =
-      currentStatus === "Pending"
-        ? "In Progress"
-        : currentStatus === "In Progress"
-        ? "Done"
-        : "Pending";
+      current === "pending"
+        ? "in_progress"
+        : current === "in_progress"
+        ? "completed"
+        : "pending";
+
+    if (!isProbablyBackendId(id) || !Array.isArray(backendTasks)) {
+      updateTaskStatus(id, newStatus);
+      return;
+    }
 
     try {
-      await tryFirst(endpoints.updateById(id), (p) => apiRequest(p, { method: "PUT", body: { status: newStatus } }));
-      setBackendTasks((prev) => {
-        if (!Array.isArray(prev)) return prev;
-        return prev.map((t) => {
-          const tid = t?._id || t?.id;
-          return String(tid) === String(id) ? { ...t, status: newStatus } : t;
-        });
-      });
-    } catch (e) {
-      updateTaskStatus(id, newStatus);
-      setError(e?.message || "Could not update task in backend; updated locally");
+      await tryFirst(endpoints.updateById(id), (p) =>
+        apiRequest(p, { method: "PATCH", body: { status: newStatus } })
+      );
+    } catch (e1) {
+      try {
+        await tryFirst(endpoints.updateById(id), (p) =>
+          apiRequest(p, { method: "PUT", body: { status: newStatus } })
+        );
+      } catch (e2) {
+        updateTaskStatus(id, newStatus);
+        setError(e2?.message || e1?.message || "Could not update task in backend; updated locally");
+        return;
+      }
     }
+
+    setBackendTasks((prev) => {
+      if (!Array.isArray(prev)) return prev;
+      return prev.map((t) => {
+        const tid = t?._id || t?.id;
+        return String(tid) === String(id) ? { ...t, status: newStatus } : t;
+      });
+    });
   };
 
   // Delete task
   const handleDeleteTask = async (id) => {
+    if (!isProbablyBackendId(id) || !Array.isArray(backendTasks)) {
+      deleteTask(id);
+      return;
+    }
+
     try {
       await tryFirst(endpoints.deleteById(id), (p) => apiRequest(p, { method: "DELETE" }));
       setBackendTasks((prev) => {
@@ -192,8 +247,8 @@ export default function DepartmentTasksPage() {
         return prev.filter((t) => String(t?._id || t?.id) !== String(id));
       });
     } catch (e) {
-      deleteTask(id);
-      setError(e?.message || "Could not delete task in backend; deleted locally");
+      // Don't fall back to local delete if backend delete failed for a backend task.
+      setError(e?.message || "Could not delete task in backend");
     }
   };
 
@@ -259,18 +314,19 @@ export default function DepartmentTasksPage() {
           data={(loading ? [] : mergedTasks).map((t) => ({
             ...t,
             id: t?.id || t?._id || t?.task_id || t?.taskId,
+            task: t?.task ?? t?.title ?? t?.description ?? t?.name,
             status: (
               <span
                 className={`px-2 py-1 rounded-full text-xs font-medium
                   ${
-                    t.status === "Done"
+                    toBackendStatus(t.status) === "completed"
                       ? "bg-green-100 text-green-700"
-                      : t.status === "In Progress"
+                      : toBackendStatus(t.status) === "in_progress"
                       ? "bg-yellow-100 text-yellow-700"
                       : "bg-gray-100 text-gray-700"
                   }`}
               >
-                {t.status}
+                {toDisplayStatus(t.status)}
               </span>
             ),
           }))}
