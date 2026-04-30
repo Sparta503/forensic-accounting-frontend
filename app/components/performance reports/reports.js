@@ -23,16 +23,56 @@ export default function PerformanceReport() {
   }, []);
 
   const { allReports, chartData } = useMemo(() => {
+    const tx = Array.isArray(backendData?.transactions) ? backendData.transactions : [];
+    if (tx.length > 1) {
+      const points = tx
+        .slice(0, 20)
+        .map((t, index) => {
+          const score =
+            t?.risk_score ??
+            t?.riskScore ??
+            t?.risk ??
+            t?.risk_level ??
+            t?.riskLevel;
+
+          const numeric =
+            typeof score === "number"
+              ? score
+              : Number(String(score || "").match(/\d+/)?.[0] || 0);
+
+          const label =
+            t?.Date ||
+            t?.date ||
+            t?.transaction_date ||
+            t?.transactionDate ||
+            t?._id ||
+            t?.id ||
+            `Tx ${index + 1}`;
+
+          return {
+            name: String(label),
+            risk: Number.isFinite(numeric) ? numeric : 0,
+          };
+        })
+        .filter((p) => p && typeof p.risk === "number");
+
+      return { allReports: [], chartData: points };
+    }
+
     const merged = [...(auditReports || []), ...(performanceReports || [])];
     if (merged.length) {
-      const points = merged.map((r, index) => {
-        const riskMatch = r?.riskLevel?.match(/\d+/) || r?.riskScore?.match(/\d+/);
-        const riskValue = riskMatch ? Number(riskMatch[0]) : 0;
-        return {
-          name: `Report ${index + 1}`,
-          risk: riskValue || 50,
-        };
-      });
+      const points = merged
+        .map((r, index) => {
+          const riskMatch = r?.riskLevel?.match(/\d+/) || r?.riskScore?.match(/\d+/);
+          const riskValue = riskMatch ? Number(riskMatch[0]) : null;
+          if (typeof riskValue !== "number" || Number.isNaN(riskValue)) return null;
+          return {
+            name: `Report ${index + 1}`,
+            risk: riskValue,
+          };
+        })
+        .filter(Boolean);
+
       return { allReports: merged, chartData: points };
     }
 
@@ -43,7 +83,7 @@ export default function PerformanceReport() {
       risk: typeof series[i] === "number" ? series[i] : 0,
     }));
     return { allReports: [], chartData: points };
-  }, [auditReports, performanceReports, managementCharts]);
+  }, [auditReports, performanceReports, managementCharts, backendData]);
 
   const { totalReportsCount, highRiskReportsCount } = useMemo(() => {
     const tx = Array.isArray(backendData?.transactions) ? backendData.transactions : [];
