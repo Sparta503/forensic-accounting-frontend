@@ -31,6 +31,17 @@ export default function LoginForm() {
     }
   }, [searchParams]);
 
+  // Prefetch dashboard routes to make navigation after login feel instant
+  useEffect(() => {
+    try {
+      router.prefetch("/dashboard/admin");
+      router.prefetch("/dashboard/auditor");
+      router.prefetch("/dashboard/management");
+    } catch (e) {
+      // ignore if prefetch isn't available in this environment
+    }
+  }, [router]);
+
   const {
     register,
     handleSubmit,
@@ -39,7 +50,11 @@ export default function LoginForm() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
+    // Persist the selected role immediately so the UI shows correct menu on navigate
     try {
+      const preRole = typeof selectedRole === "string" ? selectedRole.trim().toLowerCase() : "management";
+      localStorage.setItem("app_role", preRole);
+
       const res = await apiLogin({
         email: data.email,
         password: data.password,
@@ -50,8 +65,10 @@ export default function LoginForm() {
         throw new Error("Login succeeded but no access token was returned");
       }
 
+      // Persist token immediately so subsequent requests use it
       localStorage.setItem("token", token);
 
+      // Derive role from token (if available) and overwrite app_role
       const user = getUserFromToken();
       const rawRole = typeof user?.role === "string" ? user.role : "";
       const normalizedRole = rawRole.trim().toLowerCase();
@@ -68,12 +85,17 @@ export default function LoginForm() {
 
       localStorage.setItem("app_role", effectiveRole);
 
-      const dashboardPath =
-        effectiveRole === "admin" ? "admin" : effectiveRole === "auditor" ? "auditor" : "management";
+      const dashboardPath = effectiveRole === "admin" ? "admin" : effectiveRole === "auditor" ? "auditor" : "management";
 
+      // Navigate immediately; keep the spinner visible briefly to show progress
       router.push(`/dashboard/${dashboardPath}`);
-    } finally {
+
+      // Keep spinner visible for a short perceptible time like logout
+      setTimeout(() => setIsLoading(false), 800);
+    } catch (e) {
+      // On error, ensure spinner cleared and propagate
       setIsLoading(false);
+      throw e;
     }
   };
 
