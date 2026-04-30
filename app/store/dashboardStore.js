@@ -272,6 +272,97 @@ export const useDashboardStore = create((set, get) => ({
         };
       };
 
+      const normalizeTransactionForRevenue = (t) => {
+        if (!t || typeof t !== "object") return null;
+
+        const parseDate = (value) => {
+          if (!value) return null;
+          if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+          // First try native parsing (works for ISO strings)
+          const d1 = new Date(value);
+          if (!Number.isNaN(d1.getTime())) return d1;
+
+          // Try DD/MM/YYYY or DD/MM/YYYY HH:mm:ss
+          const s = String(value).trim();
+          const m = s.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+          );
+          if (m) {
+            const day = Number(m[1]);
+            const month = Number(m[2]);
+            const year = Number(m[3]);
+            const hh = Number(m[4] || 0);
+            const mm = Number(m[5] || 0);
+            const ss = Number(m[6] || 0);
+            const d2 = new Date(year, month - 1, day, hh, mm, ss);
+            if (!Number.isNaN(d2.getTime())) return d2;
+          }
+
+          return null;
+        };
+
+        const rawAmount = t.Amount ?? t.amount ?? t.value ?? t.total ?? 0;
+        const amount = typeof rawAmount === "number" ? rawAmount : Number(String(rawAmount).replace(/[^0-9.-]/g, "")) || 0;
+
+        const rawType =
+          t["Income/Expense"] ??
+          t.income_expense ??
+          t.incomeExpense ??
+          t.type ??
+          t.transaction_type ??
+          t.transactionType ??
+          "";
+
+        const typeKey = String(rawType || "").trim().toLowerCase();
+        const isIncome = typeKey === "income" || typeKey.includes("income") || typeKey === "credit";
+        const isExpense = typeKey === "expense" || typeKey.includes("expense") || typeKey === "debit";
+
+        const rawDate =
+          t.Date ??
+          t.date ??
+          t.transaction_date ??
+          t.transactionDate ??
+          t.created_at ??
+          t.createdAt;
+
+        const date = parseDate(rawDate);
+
+        return { amount, isIncome, isExpense, date };
+      };
+
+      const computeRevenueGrowthPct = (transactions) => {
+        if (!Array.isArray(transactions) || transactions.length < 2) return null;
+
+        const norm = transactions.map(normalizeTransactionForRevenue).filter(Boolean);
+        const dated = norm.filter((n) => n.date);
+        if (dated.length < 2) return null;
+
+        const now = new Date();
+        const msDay = 24 * 60 * 60 * 1000;
+        const startCurrent = new Date(now.getTime() - 30 * msDay);
+        const startPrev = new Date(now.getTime() - 60 * msDay);
+
+        const netForRange = (start, end) => {
+          let net = 0;
+          for (const n of dated) {
+            if (n.date < start || n.date >= end) continue;
+            if (n.isExpense) net -= n.amount;
+            else if (n.isIncome) net += n.amount;
+            else net += n.amount;
+          }
+          return net;
+        };
+
+        const prevNet = netForRange(startPrev, startCurrent);
+        const currentNet = netForRange(startCurrent, now);
+
+        const denom = Math.max(Math.abs(prevNet), 1);
+        const pct = ((currentNet - prevNet) / denom) * 100;
+        if (!Number.isFinite(pct)) return null;
+        return Math.round(pct * 10) / 10;
+      };
+
       const [
         transactionsRes,
         flaggedRes,
@@ -288,7 +379,7 @@ export const useDashboardStore = create((set, get) => ({
         role === "admin"
           ? tryGetFirst(["/reports/risk-analysis", "/reports/risk-analysis/"]).catch(() => null)
           : Promise.resolve(null),
-        role === "admin"
+        role === "admin" || role === "management"
           ? tryGetFirst([
               "/users/",
               "/users",
@@ -499,6 +590,15 @@ export const useDashboardStore = create((set, get) => ({
           isLoading: false,
         };
 
+        const usersArr = safeArray(usersRes) || [];
+        const usersCount = safeCount(usersRes) ?? (Array.isArray(usersArr) ? usersArr.length : 0);
+        if (usersCount > 0) {
+          next.stats.admin = {
+            ...next.stats.admin,
+            totalUsers: usersCount,
+          };
+        }
+
         if (role === "auditor") {
           const rows = transactions.map(toCsvRow).filter(Boolean);
 
@@ -524,9 +624,6 @@ export const useDashboardStore = create((set, get) => ({
         }
 
         if (role === "admin") {
-          const usersArr = safeArray(usersRes) || [];
-          const usersCount = safeCount(usersRes) ?? (Array.isArray(usersArr) ? usersArr.length : 0);
-
           const rawLoginsArr = safeArray(recentLoginsRes) || [];
           const loginRows = Array.isArray(rawLoginsArr)
             ? rawLoginsArr
@@ -610,11 +707,15 @@ export const useDashboardStore = create((set, get) => ({
 
         if (role === "management") {
           const fallback = generateMockData("management");
+          const computedGrowth = computeRevenueGrowthPct(transactions);
           next.stats.management = {
             ...state.stats.management,
             activeProjects: state.stats.management.activeProjects || fallback.stats.activeProjects,
             teamMembers: state.stats.management.teamMembers || fallback.stats.teamMembers,
-            revenueGrowth: state.stats.management.revenueGrowth || fallback.stats.revenueGrowth,
+            revenueGrowth:
+              typeof computedGrowth === "number"
+                ? computedGrowth
+                : (state.stats.management.revenueGrowth || fallback.stats.revenueGrowth),
           };
         }
 
