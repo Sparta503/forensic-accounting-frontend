@@ -10,22 +10,17 @@ export default function LogoutModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
 
   const handleLogout = async () => {
+    // Immediately perform local logout for best perceived speed
     setLoading(true);
+    localStorage.removeItem("token");
+    localStorage.removeItem("app_role");
+    // Fire-and-forget backend logout; don't block the UI/navigation
+    apiRequest("/auth/logout", { method: "POST" }).catch((e) => {
+      if (typeof console !== "undefined") console.warn("[LogoutModal] backend logout failed", e);
+    });
 
-    try {
-      await apiRequest("/auth/logout", { method: "POST" });
-    } catch (e) {
-      // Always proceed with local logout even if backend logout fails
-      if (typeof console !== "undefined") {
-        console.warn("[LogoutModal] backend logout failed", e);
-      }
-    }
-
-    setTimeout(() => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("app_role");
-      router.push("/auth/login");
-    }, 1200); // simulate logout delay (feels real UX)
+    // Navigate away immediately
+    router.push("/auth/login");
   };
 
   if (!isOpen) return null;
