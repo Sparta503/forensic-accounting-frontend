@@ -34,8 +34,16 @@ export default function ManagementDashboard() {
   }, []);
   
   const managementStats = stats.management;
+  const adminStats = stats.admin;
   const managementCharts = chartData.management;
   const managementTable = tableData.management;
+
+  const completedTasksCount = Array.isArray(managementTable)
+    ? managementTable.filter((t) => {
+        const s = String(t?.status || "").trim().toLowerCase();
+        return s === "completed" || s === "done";
+      }).length
+    : null;
 
   const columns = [
     { key: "department", label: "Department" },
@@ -67,15 +75,23 @@ export default function ManagementDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ml-40">
 
         <Card
-          title="Active Projects"
-          value={isLoading ? "..." : managementStats.activeProjects.toString()}
+          title="Completed Tasks"
+          value={
+            isLoading
+              ? "..."
+              : Number(completedTasksCount ?? managementStats.activeProjects ?? 0).toString()
+          }
           icon={ListTodo}
           color="blue"
         />
 
         <Card
-          title="Team Members"
-          value={isLoading ? "..." : managementStats.teamMembers.toString()}
+          title="Total Users"
+          value={
+            isLoading
+              ? "..."
+              : Number(adminStats?.totalUsers ?? managementStats.teamMembers ?? 0).toLocaleString()
+          }
           icon={Users}
           color="purple"
         />
