@@ -16,6 +16,7 @@ import {
 import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TransactionTrendChart";
+import RiskTrendInline from "../../components/charts/RiskTrendInline";
 
 // Force dynamic rendering to prevent static generation errors
 export const dynamic = "force-dynamic";
@@ -122,23 +123,29 @@ export default function ManagementDashboard() {
 
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* LINE */}
-        <FraudTrendChart
-          categories={managementCharts.line.categories}
-          series={managementCharts.line.series}
-        />
+        {(!managementCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <FraudTrendChart
+            categories={managementCharts.line.categories}
+            series={managementCharts.line.series}
+          />
+        )}
 
-        {/* PIE */}
-        <RiskPieChart
-          labels={managementCharts.pie.labels}
-          series={managementCharts.pie.series}
-        />
+        {(!managementCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskPieChart
+            labels={managementCharts.pie.labels}
+            series={managementCharts.pie.series}
+          />
+        )}
 
-        {/* BAR */}
-        <TransactionTrendChart
-          categories={managementCharts.bar.categories}
-          series={managementCharts.bar.series}
-        />
+        {(!managementCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskTrendInline />
+        )}
 
       </div>
 
