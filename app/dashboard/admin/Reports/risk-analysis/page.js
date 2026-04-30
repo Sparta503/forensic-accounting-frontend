@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../../../lib/apiClient";
+import Card from "../../../../components/ui/Card";
+import { Zap, AlertTriangle, DollarSign, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,8 @@ export default function RiskAnalysisPage() {
     };
   }, []);
 
+  // fraud summary removed from Risk Analysis view
+
   const renderPanelValue = (value) => {
     if (value === undefined) return "(no response)";
     if (value === null) return "(no data)";
@@ -75,19 +79,56 @@ export default function RiskAnalysisPage() {
     }
   };
 
+  // raw JSON view removed — cards display key metrics instead
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">Risk Analysis</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">Risk Analysis</h1>
+        {isLoading ? <div className="text-sm text-gray-500">Loading…</div> : null}
+      </div>
 
       {error ? (
         <div className="p-3 rounded border border-red-300 bg-red-50 text-red-700 text-sm">{error}</div>
       ) : null}
 
+      {/* Risk metric cards (avg/high/medium/low/total) - always render, show placeholders while loading */}
+      {(() => {
+        const d = data || {};
+        const rawAvg = d.avg_risk_score ?? d.avgRiskScore ?? d.average_risk_score ?? d.averageRiskScore ?? null;
+        const rawHigh = d.high_risk_transactions ?? d.highRiskTransactions ?? d.high_risk ?? d.highRisk ?? null;
+        const rawMedium = d.medium_risk_transactions ?? d.mediumRiskTransactions ?? d.medium_risk ?? d.mediumRisk ?? null;
+        const rawLow = d.low_risk_transactions ?? d.lowRiskTransactions ?? d.low_risk ?? d.lowRisk ?? null;
+        const rawTotal = d.total_transactions ?? d.totalTransactions ?? d.total ?? null;
+
+        const cards = [
+          { title: "Avg Risk Score", raw: rawAvg, icon: Zap, color: "purple" },
+          { title: "High Risk Transactions", raw: rawHigh, icon: AlertTriangle, color: "red" },
+          { title: "Medium Risk Transactions", raw: rawMedium, icon: Users, color: "yellow" },
+          { title: "Low Risk Transactions", raw: rawLow, icon: Users, color: "green" },
+          { title: "Total Transactions", raw: rawTotal, icon: DollarSign, color: "blue" },
+        ];
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {cards.map((c, i) => {
+              let value;
+              if (isLoading) value = "...";
+              else if (c.raw === null || c.raw === undefined) value = "(no data)";
+              else if (typeof c.raw === "number") value = String(Number.isFinite(c.raw) ? (Math.round(c.raw * 100) / 100) : c.raw);
+              else value = String(c.raw);
+
+              return <Card key={i} title={c.title} value={value} icon={c.icon} color={c.color} />;
+            })}
+          </div>
+        );
+      })()}
+
       {isLoading ? <div className="text-sm text-gray-500">Loading...</div> : null}
 
-      <pre className="p-4 rounded bg-white border border-gray-300 text-gray-900 text-xs overflow-auto shadow-sm">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      {/* Fraud Summary removed */}
+
+      {/* raw JSON view removed */}
 
       <h2 className="text-xl font-semibold text-gray-900">Analysis</h2>
 
