@@ -145,8 +145,9 @@ function AuditorDashboardContent() {
         />
 
         <TransactionTrendChart
-          categories={auditorCharts.bar.categories}
-          series={auditorCharts.bar.series}
+          period="daily"
+          metric="zscore_anomaly"
+          title="Z-Score Anomalies Over Time"
         />
 
       </div>
