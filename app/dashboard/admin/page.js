@@ -17,6 +17,7 @@ import {
 import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TransactionTrendChart";
+import RiskTrendInline from "../../components/charts/RiskTrendInline";
 
 // Force dynamic rendering to prevent static generation errors
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default function AdminDashboard() {
   const stats = useDashboardStore((s) => s.stats);
   const chartData = useDashboardStore((s) => s.chartData);
   const tableData = useDashboardStore((s) => s.tableData);
+  const backendData = useDashboardStore((s) => s.backendData);
   const fetchDashboardData = useDashboardStore((s) => s.fetchDashboardData);
   const isLoading = useDashboardStore((s) => s.isLoading);
   
@@ -41,11 +43,51 @@ export default function AdminDashboard() {
     pie: { labels: [], series: [] },
     bar: { categories: [], series: [{ name: "", data: [] }] },
   };
-  const adminTable = tableData.admin;
+  // Prefer recent transactions for Recent Activity; fallback to tableData.admin
+  const recentTx = Array.isArray(backendData?.transactions) ? backendData.transactions : [];
+  const adminTable = (recentTx.length
+    ? recentTx.slice(0, 20).map((t) => {
+        const getField = (obj, keys) => {
+          if (!obj || typeof obj !== "object") return undefined;
+          for (const k of keys) {
+            // support nested paths like "details.amount"
+            if (k.includes(".")) {
+              const parts = k.split(".");
+              let cur = obj;
+              let found = true;
+              for (const p of parts) {
+                if (cur && Object.prototype.hasOwnProperty.call(cur, p)) cur = cur[p];
+                else { found = false; break; }
+              }
+              if (found && cur !== undefined) return cur;
+            } else if (Object.prototype.hasOwnProperty.call(obj, k)) {
+              return obj[k];
+            }
+          }
+          return undefined;
+        };
+
+        const txId = getField(t, ["id", "_id", "transaction_id", "tx_id", "txn_id", "txnId", "transactionId", "reference", "ref"] ) || "";
+        const amountRaw = getField(t, ["amount", "transaction_amount", "txn_amount", "value", "amt", "total", "Amount", "details.amount", "payload.amount", "amount_cents"]) ?? "";
+        const amount = typeof amountRaw === "number" ? amountRaw.toLocaleString() : String(amountRaw || "");
+        const time = getField(t, ["timestamp", "transaction_date", "createdAt", "created_at", "date", "Date"]) || "";
+        const user = undefined;
+        const category = undefined;
+        const flagged = getField(t, ["is_flagged", "flagged", "is_fraud", "fraud", "status_flag"]);
+        const status = (flagged === true || String(flagged) === "1" || String(flagged).toLowerCase() === "true") ? "Flagged" : "Not Flagged";
+
+        return {
+          transaction_id: txId,
+          amount,
+          time,
+          status,
+        };
+      })
+    : tableData.admin);
 
   const columns = [
-    { key: "user", label: "User" },
-    { key: "action", label: "Action" },
+    { key: "transaction_id", label: "Transaction ID" },
+    { key: "amount", label: "Amount" },
     { key: "time", label: "Time" },
     { key: "status", label: "Status" },
   ];
@@ -93,20 +135,29 @@ export default function AdminDashboard() {
 
       <div className="grid lg:grid-cols-3 gap-6">
 
-        <FraudTrendChart
-          categories={safeAdminCharts.line.categories}
-          series={safeAdminCharts.line.series}
-        />
+        {(!adminCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <FraudTrendChart
+            categories={safeAdminCharts.line.categories}
+            series={safeAdminCharts.line.series}
+          />
+        )}
 
-        <RiskPieChart
-          labels={safeAdminCharts.pie.labels}
-          series={safeAdminCharts.pie.series}
-        />
+        {(!adminCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskPieChart
+            labels={safeAdminCharts.pie.labels}
+            series={safeAdminCharts.pie.series}
+          />
+        )}
 
-        <TransactionTrendChart
-          categories={safeAdminCharts.bar.categories}
-          series={safeAdminCharts.bar.series}
-        />
+        {(!adminCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskTrendInline role="admin" defaultHeight={260} expandedHeight={420} />
+        )}
 
       </div>
 
