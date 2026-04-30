@@ -20,6 +20,7 @@ import {
 import FraudTrendChart from "../../components/charts/FraudPieChart";
 import RiskPieChart from "../../components/charts/RiskChart";
 import TransactionTrendChart from "../../components/charts/TransactionTrendChart";
+import RiskTrendInline from "../../components/charts/RiskTrendInline";
 
 // Force dynamic rendering to prevent static generation errors
 export const dynamic = "force-dynamic";
@@ -127,28 +128,36 @@ function AuditorDashboardContent() {
       <h2 className="text-xl font-semibold text-gray-900 tracking-wide flex items-center gap-2 border-l-4 border-blue-500 pl-3">
         <ShieldCheck size={20} className="text-blue-600" />
         Graphical Summary
-        <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${hasChartData ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-          {hasChartData ? 'Live Data' : 'Mock Data'}
+        <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${isLoading ? 'bg-yellow-100 text-yellow-800' : hasChartData ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+          {isLoading ? 'Loading' : hasChartData ? 'Live Data' : 'No Data'}
         </span>
       </h2>
 
       <div className="grid lg:grid-cols-3 gap-6">
 
-        <FraudTrendChart
-          categories={auditorCharts.line.categories}
-          series={auditorCharts.line.series}
-        />
+        {(!auditorCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <FraudTrendChart
+            categories={auditorCharts.line.categories}
+            series={auditorCharts.line.series}
+          />
+        )}
 
-        <RiskPieChart
-          labels={auditorCharts.pie.labels}
-          series={auditorCharts.pie.series}
-        />
+        {(!auditorCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskPieChart
+            labels={auditorCharts.pie.labels}
+            series={auditorCharts.pie.series}
+          />
+        )}
 
-        <TransactionTrendChart
-          period="daily"
-          metric="zscore_anomaly"
-          title="Z-Score Anomalies Over Time"
-        />
+        {(!auditorCharts || isLoading) ? (
+          <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl border border-gray-700 animate-pulse h-[320px]" />
+        ) : (
+          <RiskTrendInline defaultHeight={260} expandedHeight={420} />
+        )}
 
       </div>
 
