@@ -326,8 +326,26 @@ export const useDashboardStore = create((set, get) => ({
         usersRes,
         recentLoginsRes,
       ] = await Promise.all([
-        tryGetFirst(["/transactions/", "/transactions"]).catch(() => null),
-        tryGetFirst(["/fraud/flagged", "/fraud/flagged/"]).catch(() => null),
+        tryGetFirst([
+          "/transactions/?limit=200",
+          "/transactions?limit=200",
+          "/transactions/?page_size=200",
+          "/transactions?page_size=200",
+          "/transactions/?per_page=200",
+          "/transactions?per_page=200",
+          "/transactions/",
+          "/transactions",
+        ]).catch(() => null),
+        tryGetFirst([
+          "/fraud/flagged?limit=200",
+          "/fraud/flagged/?limit=200",
+          "/fraud/flagged?page_size=200",
+          "/fraud/flagged/?page_size=200",
+          "/fraud/flagged?per_page=200",
+          "/fraud/flagged/?per_page=200",
+          "/fraud/flagged",
+          "/fraud/flagged/",
+        ]).catch(() => null),
         role === "admin"
           ? tryGetFirst(["/reports/fraud-summary", "/reports/fraud-summary/"]).catch(() => null)
           : Promise.resolve(null),
@@ -507,6 +525,7 @@ export const useDashboardStore = create((set, get) => ({
 
       // If flagged response is empty, derive pseudo-flagged records from transactions
       let auditorDerivedCharts;
+      let effectiveFlagged = Array.isArray(flagged) ? flagged : [];
       if ((!Array.isArray(flagged) || flagged.length === 0) && Array.isArray(transactions) && transactions.length > 0) {
         const pseudo = transactions
           .filter((t) => t?.is_flagged === true || t?.is_fraud === true || typeof t?.risk_score === 'number')
@@ -516,6 +535,8 @@ export const useDashboardStore = create((set, get) => ({
             status: t.is_flagged || t.is_fraud ? 'Flagged' : (t.status || 'Reviewed'),
             timestamp: t.transaction_date || t.transactionDate || t.created_at || t.createdAt || t.date || t.Date || "",
           }));
+
+        effectiveFlagged = pseudo.length ? pseudo : effectiveFlagged;
 
         auditorDerivedCharts = deriveAuditorCharts(pseudo.length ? pseudo : flagged, transactions);
       } else {
@@ -536,6 +557,7 @@ export const useDashboardStore = create((set, get) => ({
           stats: { ...state.stats },
           chartData: { ...state.chartData },
           tableData: { ...state.tableData },
+          flaggedTransactions: state.flaggedTransactions,
           backendData: {
             transactions,
             flagged,
@@ -556,6 +578,11 @@ export const useDashboardStore = create((set, get) => ({
           const rows = transactions.map(toCsvRow).filter(Boolean);
 
           next.tableData.auditor = rows.length ? rows : state.tableData.auditor;
+
+          // Keep cards in sync with backend flagged data (not the initial mock)
+          if (Array.isArray(effectiveFlagged) && effectiveFlagged.length > 0) {
+            next.flaggedTransactions = effectiveFlagged;
+          }
 
           next.stats.auditor = {
             ...state.stats.auditor,
@@ -638,6 +665,11 @@ export const useDashboardStore = create((set, get) => ({
               state.stats.admin.fraudAlerts,
             totalUsers: usersCount || state.stats.admin.totalUsers,
           };
+
+          // Admin pages (fraud summary) also rely on flaggedTransactions for cards/tables
+          if (Array.isArray(effectiveFlagged) && effectiveFlagged.length > 0) {
+            next.flaggedTransactions = effectiveFlagged;
+          }
 
           if (loginRows.length) {
             next.tableData.admin = loginRows;
