@@ -35,9 +35,34 @@ export default function AuditorTransactionsPage() {
 
     const loadTransactions = async () => {
       try {
-        return await apiRequest("/transactions/");
+        return await apiRequest("/transactions/?limit=200");
       } catch (e) {
         if (e?.status === 404 || e?.status === 405) {
+          try {
+            return await apiRequest("/transactions?limit=200");
+          } catch (e2) {
+            // continue
+          }
+          try {
+            return await apiRequest("/transactions/?page_size=200");
+          } catch (e3) {
+            // continue
+          }
+          try {
+            return await apiRequest("/transactions?page_size=200");
+          } catch (e4) {
+            // continue
+          }
+          try {
+            return await apiRequest("/transactions/?per_page=200");
+          } catch (e5) {
+            // continue
+          }
+          try {
+            return await apiRequest("/transactions?per_page=200");
+          } catch (e6) {
+            // continue
+          }
           return await apiRequest("/transactions");
         }
         throw e;
