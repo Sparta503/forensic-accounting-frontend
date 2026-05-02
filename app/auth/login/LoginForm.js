@@ -87,11 +87,9 @@ export default function LoginForm() {
 
       const dashboardPath = effectiveRole === "admin" ? "admin" : effectiveRole === "auditor" ? "auditor" : "management";
 
-      // Navigate immediately; keep the spinner visible briefly to show progress
-      router.push(`/dashboard/${dashboardPath}`);
-
-      // Keep spinner visible for a short perceptible time like logout
-      setTimeout(() => setIsLoading(false), 800);
+      // Navigate immediately. Keep the spinner visible until unmount to avoid
+      // re-rendering the form/button again after success.
+      router.replace(`/dashboard/${dashboardPath}`);
     } catch (e) {
       // On error, ensure spinner cleared and propagate
       setIsLoading(false);
