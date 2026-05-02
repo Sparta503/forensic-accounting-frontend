@@ -18,7 +18,32 @@ export default function AdminTransactionsPage() {
       setIsLoading(true);
       setError("");
       try {
-        const res = await apiRequest("/transactions/");
+        let res;
+        try {
+          res = await apiRequest("/transactions/?limit=200");
+        } catch (e1) {
+          try {
+            res = await apiRequest("/transactions?limit=200");
+          } catch (e2) {
+            try {
+              res = await apiRequest("/transactions/?page_size=200");
+            } catch (e3) {
+              try {
+                res = await apiRequest("/transactions?page_size=200");
+              } catch (e4) {
+                try {
+                  res = await apiRequest("/transactions/?per_page=200");
+                } catch (e5) {
+                  try {
+                    res = await apiRequest("/transactions?per_page=200");
+                  } catch (e6) {
+                    res = await apiRequest("/transactions/");
+                  }
+                }
+              }
+            }
+          }
+        }
         const items = Array.isArray(res) ? res : res?.items || res?.data || res?.results || [];
         if (mounted) setData(items);
       } catch (e) {
