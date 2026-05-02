@@ -42,7 +42,7 @@ export default function Table({ columns, data, searchQuery = "" }) {
   }, [data, columns, searchQuery]);
 
   const handleSeeMore = () => {
-    setVisibleRows(10);
+    setVisibleRows(200);
   };
 
   const handleSeeLess = () => {
