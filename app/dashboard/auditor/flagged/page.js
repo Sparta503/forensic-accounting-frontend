@@ -24,16 +24,77 @@ export default function FlaggedTransactionsPage() {
   const highRiskFlagged = flaggedTransactions.filter(t => t.risk === "High");
   const mediumRiskFlagged = flaggedTransactions.filter(t => t.risk === "Medium");
 
+  const getField = (obj, keys) => {
+    if (!obj || typeof obj !== "object") return undefined;
+    for (const k of keys) {
+      if (Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
+    }
+    return undefined;
+  };
+
+  const asText = (v) => {
+    if (v === null || v === undefined) return "-";
+    if (Array.isArray(v)) return v.length ? v.join(", ") : "-";
+    const s = String(v);
+    return s.length ? s : "-";
+  };
+
+  const normalizeRisk = (row) => {
+    const raw = getField(row, ["risk_level", "riskLevel", "risk", "riskRating"]) ?? "";
+    const s = String(raw).trim();
+    if (!s) return "-";
+    const low = s.toLowerCase();
+    if (low === "high") return "High";
+    if (low === "medium") return "Medium";
+    if (low === "low") return "Low";
+    return s;
+  };
+
   const columns = useMemo(
     () => [
-      { key: "transaction_id", label: "Transaction ID" },
-      { key: "user", label: "User" },
-      { key: "amount", label: "Amount" },
-      { key: "risk", label: "Risk Level" },
-      { key: "risk_score", label: "Risk Score" },
-      { key: "status", label: "Status" },
-      { key: "reason", label: "Reason" },
-      { key: "timestamp", label: "Timestamp" },
+      {
+        key: "transaction_id",
+        label: "Transaction ID",
+        render: (row) => asText(getField(row, ["transaction_id", "transactionId", "tx_id", "txn_id", "id", "_id"])),
+      },
+      {
+        key: "user",
+        label: "User",
+        render: (row) => asText(getField(row, ["user", "user_id", "userId", "email", "username", "account"])),
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        render: (row) => asText(getField(row, ["amount", "Amount", "transaction_amount", "txn_amount", "value", "amt", "total"])) ,
+      },
+      {
+        key: "risk",
+        label: "Risk Level",
+        render: (row) => normalizeRisk(row),
+      },
+      {
+        key: "risk_score",
+        label: "Risk Score",
+        render: (row) => {
+          const v = getField(row, ["risk_score", "riskScore", "score", "anomaly_score"]);
+          return asText(v);
+        },
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (row) => asText(getField(row, ["status", "state", "review_status", "reviewStatus"])),
+      },
+      {
+        key: "reason",
+        label: "Reason",
+        render: (row) => asText(getField(row, ["reason", "fraud_reasons", "fraudReasons", "reasons", "notes", "Note"])),
+      },
+      {
+        key: "timestamp",
+        label: "Timestamp",
+        render: (row) => asText(getField(row, ["timestamp", "created_at", "createdAt", "transaction_date", "transactionDate", "date", "Date"])),
+      },
     ],
     []
   );
