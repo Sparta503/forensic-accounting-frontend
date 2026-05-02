@@ -47,6 +47,51 @@ function AuditorDashboardContent() {
   const auditorCharts = chartData.auditor;
   const auditorTable = tableData.auditor;
 
+  const parseRowDate = (row) => {
+    try {
+      const raw =
+        row?.Timestamp ??
+        row?.timestamp ??
+        row?.Date ??
+        row?.date ??
+        row?.created_at ??
+        row?.createdAt;
+      if (!raw) return null;
+      const s = String(raw).trim();
+
+      // Native parse (handles ISO)
+      const d = new Date(s);
+      if (!isNaN(d)) return d;
+
+      // DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
+      const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      if (m) {
+        const day = Number(m[1]);
+        const month = Number(m[2]) - 1;
+        const year = Number(m[3]);
+        const hh = Number(m[4] ?? 0);
+        const mm = Number(m[5] ?? 0);
+        const ss = Number(m[6] ?? 0);
+        const dd = new Date(year, month, day, hh, mm, ss);
+        if (!isNaN(dd)) return dd;
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const sortedAuditorTable = Array.isArray(auditorTable)
+    ? [...auditorTable].sort((a, b) => {
+        const da = parseRowDate(a);
+        const db = parseRowDate(b);
+        const ta = da ? da.getTime() : 0;
+        const tb = db ? db.getTime() : 0;
+        return tb - ta;
+      })
+    : auditorTable;
+
   const hasChartData = (() => {
     try {
       const pieSeries = auditorCharts?.pie?.series || [];
@@ -172,7 +217,7 @@ function AuditorDashboardContent() {
         {/* ✅ PASS searchQuery */}
         <Table
           columns={columns}
-          data={auditorTable}
+          data={sortedAuditorTable}
           searchQuery={searchQuery}
         />
 
